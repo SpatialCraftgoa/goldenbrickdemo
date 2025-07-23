@@ -1,1 +1,0 @@
-self.__REACT_LOADABLE_MANIFEST='{"pages/index.js -> ../components/DubaiMap":{"id":9665,"files":["static/chunks/0b7b90cd.465c31aaa94e5522.js","static/chunks/369.f444eeb76008e355.js","static/chunks/665.711331f7e1aa12c0.js"]}}';
