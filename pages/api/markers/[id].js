@@ -34,13 +34,6 @@ export default async function handler(req, res) {
   const { id } = req.query;
 
   try {
-    // Check database connectivity first
-    if (!db.isConnected()) {
-      return res.status(503).json({ 
-        message: 'Database unavailable. Please check connection.', 
-        error: 'SERVICE_UNAVAILABLE' 
-      });
-    }
 
     if (req.method === 'DELETE') {
       // Delete marker - only for admin users

@@ -36,7 +36,7 @@ export default async function handler(req, res) {
       // Fetch all markers - accessible to all users (authenticated and non-authenticated)
       const result = await db.query(`
         SELECT id, title, description, latitude, longitude, 
-               icon_image, content_items, created_by, created_at 
+               icon_image, content_items, google_maps_url, created_by, created_at 
         FROM markers 
         ORDER BY created_at DESC
       `);
@@ -51,6 +51,7 @@ export default async function handler(req, res) {
         },
         iconImage: row.icon_image,
         contentItems: row.content_items,
+        googleMapsUrl: row.google_maps_url,
         createdBy: row.created_by,
         createdAt: row.created_at
       }));
@@ -65,15 +66,15 @@ export default async function handler(req, res) {
         return res.status(403).json({ message: 'Admin access required' });
       }
 
-      const { title, description, position, iconImage, contentItems } = req.body;
+      const { title, description, position, iconImage, contentItems, googleMapsUrl } = req.body;
 
       if (!title || !description || !position || !iconImage || !contentItems) {
         return res.status(400).json({ message: 'Missing required fields' });
       }
 
       const result = await db.query(`
-        INSERT INTO markers (title, description, latitude, longitude, icon_image, content_items, created_by)
-        VALUES ($1, $2, $3, $4, $5, $6, $7)
+        INSERT INTO markers (title, description, latitude, longitude, icon_image, content_items, google_maps_url, created_by)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
         RETURNING *
       `, [
         title,
@@ -82,6 +83,7 @@ export default async function handler(req, res) {
         position.lng,
         iconImage,
         JSON.stringify(contentItems),
+        googleMapsUrl || null,
         user.username
       ]);
 
@@ -95,6 +97,7 @@ export default async function handler(req, res) {
         },
         iconImage: result.rows[0].icon_image,
         contentItems: result.rows[0].content_items,
+        googleMapsUrl: result.rows[0].google_maps_url,
         createdBy: result.rows[0].created_by,
         createdAt: result.rows[0].created_at
       };

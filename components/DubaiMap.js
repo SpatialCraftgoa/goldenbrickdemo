@@ -127,26 +127,35 @@ const addCircularIconStyles = () => {
           width: 100%;
           max-width: 400px;
           margin: 0 auto;
+          user-select: none;
         }
         .slider-container {
           position: relative;
           overflow: hidden;
           border-radius: 8px;
           background: #f8f9fa;
+          width: 100%;
         }
         .slider-content {
           display: flex;
-          transition: transform 0.3s ease-in-out;
+          transition: transform 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+          will-change: transform;
+          height: 250px;
         }
         .slider-item {
           min-width: 100%;
           flex-shrink: 0;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          background: #ffffff;
         }
         .slider-image {
-          width: 100%;
-          height: 250px;
-          object-fit: cover;
+          max-width: 100%;
+          max-height: 100%;
+          object-fit: contain;
           display: block;
+          border-radius: 4px;
         }
         .slider-video {
           width: 100%;
@@ -157,46 +166,60 @@ const addCircularIconStyles = () => {
           position: absolute;
           top: 50%;
           transform: translateY(-50%);
-          background: rgba(0, 0, 0, 0.7);
+          background: transparent;
           color: white;
           border: none;
-          width: 40px;
-          height: 40px;
+          outline: none;
+          width: 45px;
+          height: 45px;
           border-radius: 50%;
           cursor: pointer;
           display: flex;
           align-items: center;
           justify-content: center;
-          font-size: 18px;
-          transition: background-color 0.2s;
-          z-index: 10;
+          font-size: 20px;
+          font-weight: bold;
+          z-index: 20;
+          text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
+          opacity: 0.8;
+          user-select: none;
+          -webkit-tap-highlight-color: transparent;
         }
-        .slider-nav:hover {
-          background: rgba(0, 0, 0, 0.9);
+        .slider-nav:focus {
+          outline: none;
+        }
+        .slider-nav:active {
+          transform: translateY(-50%);
+          opacity: 0.8;
         }
         .slider-nav.prev {
-          left: 10px;
+          left: 15px;
         }
         .slider-nav.next {
-          right: 10px;
+          right: 15px;
         }
         .slider-indicators {
           display: flex;
           justify-content: center;
-          gap: 8px;
-          padding: 12px 0;
+          gap: 10px;
+          padding: 15px 0;
           background: #f8f9fa;
         }
         .slider-dot {
-          width: 12px;
-          height: 12px;
+          width: 14px;
+          height: 14px;
           border-radius: 50%;
           background: #dee2e6;
           cursor: pointer;
-          transition: background-color 0.2s;
+          border: 2px solid transparent;
+          outline: none;
+        }
+        .slider-dot:hover {
+          background: #adb5bd;
         }
         .slider-dot.active {
           background: #007bff;
+          border-color: #0056b3;
         }
         .slider-counter {
           position: absolute;
@@ -245,46 +268,88 @@ function MapClickHandler({ onMapClick, isAdmin }) {
 // Enhanced Media Slider component for popup
 function MediaSlider({ contentItems }) {
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [touchStart, setTouchStart] = useState(null);
+  const [touchEnd, setTouchEnd] = useState(null);
+  const sliderRef = useRef(null);
+
+  // Reset index when contentItems change
+  useEffect(() => {
+    setCurrentIndex(0);
+  }, [contentItems]);
 
   if (!contentItems || contentItems.length === 0) return null;
 
-  const goToPrevious = useCallback(() => {
+  const goToPrevious = () => {
+    if (contentItems.length <= 1) return;
     setCurrentIndex((prevIndex) => 
       prevIndex === 0 ? contentItems.length - 1 : prevIndex - 1
     );
-  }, [contentItems.length]);
+  };
 
-  const goToNext = useCallback(() => {
+  const goToNext = () => {
+    if (contentItems.length <= 1) return;
     setCurrentIndex((prevIndex) => 
       prevIndex === contentItems.length - 1 ? 0 : prevIndex + 1
     );
-  }, [contentItems.length]);
+  };
 
-  const goToSlide = useCallback((index) => {
-    setCurrentIndex(index);
-  }, []);
+  const goToSlide = (index) => {
+    if (index >= 0 && index < contentItems.length) {
+      setCurrentIndex(index);
+    }
+  };
 
-  // Keyboard navigation
-  useEffect(() => {
-    const handleKeyPress = (e) => {
-      if (e.key === 'ArrowLeft') {
-        goToPrevious();
-      } else if (e.key === 'ArrowRight') {
-        goToNext();
-      }
-    };
+  // Touch handlers for swipe support
+  const handleTouchStart = (e) => {
+    setTouchEnd(null);
+    setTouchStart(e.targetTouches[0].clientX);
+  };
 
-    document.addEventListener('keydown', handleKeyPress);
-    return () => {
-      document.removeEventListener('keydown', handleKeyPress);
-    };
-  }, [goToPrevious, goToNext]);
+  const handleTouchMove = (e) => {
+    setTouchEnd(e.targetTouches[0].clientX);
+  };
+
+  const handleTouchEnd = () => {
+    if (!touchStart || !touchEnd) return;
+    
+    const distance = touchStart - touchEnd;
+    const isLeftSwipe = distance > 50;
+    const isRightSwipe = distance < -50;
+
+    if (isLeftSwipe && contentItems.length > 1) {
+      goToNext();
+    } else if (isRightSwipe && contentItems.length > 1) {
+      goToPrevious();
+    }
+  };
+
+  // Keyboard navigation only when slider is focused
+  const handleKeyPress = (e) => {
+    if (e.key === 'ArrowLeft') {
+      e.preventDefault();
+      goToPrevious();
+    } else if (e.key === 'ArrowRight') {
+      e.preventDefault();
+      goToNext();
+    }
+  };
 
   const currentItem = contentItems[currentIndex];
 
   return (
-    <div className="media-slider">
-      <div className="slider-container">
+    <div 
+      className="media-slider" 
+      ref={sliderRef}
+      tabIndex={0}
+      onKeyDown={handleKeyPress}
+      style={{ outline: 'none' }}
+    >
+      <div 
+        className="slider-container"
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+      >
         {/* Counter */}
         {contentItems.length > 1 && (
           <div className="slider-counter">
@@ -300,17 +365,32 @@ function MediaSlider({ contentItems }) {
         {/* Navigation arrows */}
         {contentItems.length > 1 && (
           <>
-            <button className="slider-nav prev" onClick={goToPrevious}>
+            <button 
+              className="slider-nav prev" 
+              onClick={goToPrevious}
+              type="button"
+              aria-label="Previous image"
+            >
               ‹
             </button>
-            <button className="slider-nav next" onClick={goToNext}>
+            <button 
+              className="slider-nav next" 
+              onClick={goToNext}
+              type="button"
+              aria-label="Next image"
+            >
               ›
             </button>
           </>
         )}
 
         {/* Slider content */}
-        <div className="slider-content" style={{ transform: `translateX(-${currentIndex * 100}%)` }}>
+        <div 
+          className="slider-content" 
+          style={{ 
+            transform: `translateX(-${currentIndex * 100}%)`
+          }}
+        >
           {contentItems.map((item, index) => (
             <div key={index} className="slider-item">
               {item.type === 'image' ? (
@@ -318,6 +398,7 @@ function MediaSlider({ contentItems }) {
                   src={item.url}
                   alt={`Image ${index + 1}`}
                   className="slider-image"
+                  style={{ userSelect: 'none' }}
                 />
               ) : (
                 <iframe
@@ -341,6 +422,8 @@ function MediaSlider({ contentItems }) {
                 key={index}
                 className={`slider-dot ${index === currentIndex ? 'active' : ''}`}
                 onClick={() => goToSlide(index)}
+                type="button"
+                aria-label={`Go to slide ${index + 1}`}
               />
             ))}
           </div>
