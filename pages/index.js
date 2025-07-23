@@ -24,12 +24,10 @@ export default function Home() {
         <link rel="icon" href="/favicon.ico" />
       </Head>
 
-      <main style={mainStyle}>
-        <header style={headerStyle}>
-          <h1 style={titleStyle}>Dubai Interactive Map</h1>
-          <p style={instructionStyle}>
-            Click anywhere on the map to add a marker with your own label and image!
-          </p>
+      <main style={{...mainStyle, backgroundColor: '#000'}}>
+        <header style={{...headerStyle, backgroundColor: '#000', color: '#fff', padding: '3rem 3rem', borderBottom: '1px solid #dee2e6', textAlign: 'center', position: 'relative'}}>
+          <img src="/GB_Logo_New-removebg-preview.png" alt="Golden Bricks Logo" style={{position: 'absolute', left: '2rem', top: '50%', transform: 'translateY(-50%)', width: '160px', height: 'auto', borderRadius: '8px', boxShadow: '0 2px 8px rgba(0,0,0,0.5)', background: 'transparent'}} />
+          <img src="https://spatialcraft.in/wp-content/uploads/2024/04/New-Project-51-2.png" alt="Dubai Map" style={{position: 'absolute', right: '2rem', top: '50%', transform: 'translateY(-50%)', width: '200px', height: 'auto', borderRadius: '8px', boxShadow: '0 2px 8px rgba(0,0,0,0.5)'}} />
         </header>
         
         <div style={mapContainerStyle}>
