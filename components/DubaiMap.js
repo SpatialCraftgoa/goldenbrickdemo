@@ -143,7 +143,7 @@ const addCircularIconStyles = () => {
           height: 250px;
         }
         .slider-item {
-          min-width: 100%;
+          width: 100%;
           flex-shrink: 0;
           display: flex;
           align-items: center;
@@ -243,10 +243,6 @@ const addCircularIconStyles = () => {
           font-size: 12px;
           z-index: 10;
         }
-        .google-maps-button:hover {
-          background-color: #3367d6;
-          transform: translateY(-1px);
-        }
       `;
       document.head.appendChild(style);
     }
@@ -335,6 +331,8 @@ function MediaSlider({ contentItems }) {
   };
 
   const currentItem = contentItems[currentIndex];
+  // Percentage width of a single slide
+  const slidePercentage = 100 / contentItems.length;
 
   return (
     <div 
@@ -388,11 +386,12 @@ function MediaSlider({ contentItems }) {
         <div 
           className="slider-content" 
           style={{ 
-            transform: `translateX(-${currentIndex * 100}%)`
+            transform: `translateX(-${currentIndex * slidePercentage}%)`,
+            width: `${contentItems.length * 100}%`
           }}
         >
           {contentItems.map((item, index) => (
-            <div key={index} className="slider-item">
+            <div key={index} className="slider-item" style={{ width: `${slidePercentage}%` }}>
               {item.type === 'image' ? (
                 <img
                   src={item.url}
@@ -982,31 +981,31 @@ export default function DubaiMap() {
               <div style={popupContentStyle}>
                 <div style={popupHeaderStyle}>
                   <h4 style={popupTitleStyle}>{marker.title}</h4>
-                  {user && user.role === 'admin' && (
-                    <button
-                      onClick={() => handleDeleteMarker(marker.id)}
-                      style={deleteMarkerButtonStyle}
-                      title="Delete this marker"
-                    >
-                      🗑️
-                    </button>
-                  )}
+                  <div style={headerButtonsStyle}>
+                    {marker.googleMapsUrl && (
+                      <a
+                        href={marker.googleMapsUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={headerGoogleMapsButtonStyle}
+                        title="Open in Google Maps"
+                      >
+                        🗺️
+                      </a>
+                    )}
+                    {user && user.role === 'admin' && (
+                      <button
+                        onClick={() => handleDeleteMarker(marker.id)}
+                        style={deleteMarkerButtonStyle}
+                        title="Delete this marker"
+                      >
+                        🗑️
+                      </button>
+                    )}
+                  </div>
                 </div>
                 <p style={popupDescriptionStyle}>{marker.description}</p>
                 <MediaSlider contentItems={marker.contentItems} />
-                {marker.googleMapsUrl && (
-                  <div style={googleMapsLinkStyle}>
-                    <a 
-                      href={marker.googleMapsUrl} 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      style={googleMapsButtonStyle}
-                      className="google-maps-button"
-                    >
-                      🗺️ Open in Google Maps
-                    </a>
-                  </div>
-                )}
                 <LocationDisplay position={marker.position} />
                 {marker.createdBy && (
                   <p style={createdByStyle}>
@@ -1173,6 +1172,23 @@ const popupHeaderStyle = {
   marginBottom: '0.5rem',
 };
 
+const headerButtonsStyle = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: '0.5rem',
+};
+
+const headerGoogleMapsButtonStyle = {
+  background: 'none',
+  border: 'none',
+  fontSize: '1.2rem',
+  cursor: 'pointer',
+  padding: '0.25rem',
+  borderRadius: '3px',
+  textDecoration: 'none',
+  transition: 'transform 0.1s',
+};
+
 const deleteMarkerButtonStyle = {
   background: 'none',
   border: 'none',
@@ -1180,7 +1196,6 @@ const deleteMarkerButtonStyle = {
   cursor: 'pointer',
   padding: '0.25rem',
   borderRadius: '3px',
-  marginLeft: '0.5rem',
 };
 
 const createdByStyle = {
@@ -1455,20 +1470,4 @@ const popupLocationStyle = {
   fontFamily: 'monospace',
 };
 
-const googleMapsLinkStyle = {
-  margin: '1rem 0',
-  textAlign: 'center',
-};
-
-const googleMapsButtonStyle = {
-  display: 'inline-block',
-  backgroundColor: '#4285f4',
-  color: 'white',
-  padding: '0.75rem 1.5rem',
-  borderRadius: '8px',
-  textDecoration: 'none',
-  fontSize: '0.9rem',
-  fontWeight: 'bold',
-  transition: 'background-color 0.2s, transform 0.1s',
-  boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
-}; 
+ 

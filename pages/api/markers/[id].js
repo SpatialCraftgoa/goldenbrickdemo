@@ -34,6 +34,7 @@ export default async function handler(req, res) {
   const { id } = req.query;
 
   try {
+    // Attempt operation even if primary DB is down; lib/db will fall back to local storage
 
     if (req.method === 'DELETE') {
       // Delete marker - only for admin users
