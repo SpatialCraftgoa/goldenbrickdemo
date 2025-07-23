@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet-defaulticon-compatibility';
@@ -12,6 +12,36 @@ const ZOOM_LEVEL = 11;
 const OPENSTREETMAP = {
   url: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
   attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+};
+
+// Function to get location name from coordinates (reverse geocoding)
+const getLocationName = async (lat, lng) => {
+  try {
+    const response = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`
+    );
+    const data = await response.json();
+    
+    if (data && data.display_name) {
+      // Extract relevant parts of the address
+      const address = data.address || {};
+      const parts = [];
+      
+      if (address.road) parts.push(address.road);
+      if (address.suburb) parts.push(address.suburb);
+      if (address.city || address.town || address.village) {
+        parts.push(address.city || address.town || address.village);
+      }
+      if (address.country) parts.push(address.country);
+      
+      return parts.length > 0 ? parts.join(', ') : data.display_name;
+    }
+    
+    return `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+  } catch (error) {
+    console.error('Error getting location name:', error);
+    return `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+  }
 };
 
 // Function to compress/resize image to reduce file size
@@ -71,7 +101,7 @@ const createImageIcon = (iconImageUrl) => {
   });
 };
 
-// Add CSS for circular icons and media gallery
+// Add CSS for circular icons and media slider
 const addCircularIconStyles = () => {
   if (typeof document !== 'undefined') {
     const styleId = 'circular-marker-styles';
@@ -92,47 +122,107 @@ const addCircularIconStyles = () => {
           width: 100% !important;
           height: 100% !important;
         }
-        .media-gallery {
-          display: flex;
-          gap: 0.5rem;
-          overflow-x: auto;
-          padding: 0.5rem 0;
-        }
-        .gallery-item {
-          min-width: 120px;
-          height: 80px;
-          object-fit: cover;
-          border-radius: 4px;
-          cursor: pointer;
-          border: 2px solid transparent;
-          transition: border-color 0.2s;
+        .media-slider {
           position: relative;
+          width: 100%;
+          max-width: 400px;
+          margin: 0 auto;
         }
-        .gallery-item:hover {
-          border-color: #007bff;
+        .slider-container {
+          position: relative;
+          overflow: hidden;
+          border-radius: 8px;
+          background: #f8f9fa;
         }
-        .gallery-item.video::after {
-          content: "▶";
+        .slider-content {
+          display: flex;
+          transition: transform 0.3s ease-in-out;
+        }
+        .slider-item {
+          min-width: 100%;
+          flex-shrink: 0;
+        }
+        .slider-image {
+          width: 100%;
+          height: 250px;
+          object-fit: cover;
+          display: block;
+        }
+        .slider-video {
+          width: 100%;
+          height: 250px;
+          border: none;
+        }
+        .slider-nav {
           position: absolute;
           top: 50%;
-          left: 50%;
-          transform: translate(-50%, -50%);
+          transform: translateY(-50%);
+          background: rgba(0, 0, 0, 0.7);
           color: white;
-          font-size: 20px;
-          text-shadow: 0 0 4px rgba(0,0,0,0.8);
-          pointer-events: none;
+          border: none;
+          width: 40px;
+          height: 40px;
+          border-radius: 50%;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 18px;
+          transition: background-color 0.2s;
+          z-index: 10;
         }
-        .main-media {
-          width: 100%;
-          max-height: 250px;
-          border-radius: 4px;
-          margin-bottom: 0.5rem;
+        .slider-nav:hover {
+          background: rgba(0, 0, 0, 0.9);
         }
-        .main-image {
-          object-fit: cover;
+        .slider-nav.prev {
+          left: 10px;
         }
-        .youtube-embed {
-          aspect-ratio: 16/9;
+        .slider-nav.next {
+          right: 10px;
+        }
+        .slider-indicators {
+          display: flex;
+          justify-content: center;
+          gap: 8px;
+          padding: 12px 0;
+          background: #f8f9fa;
+        }
+        .slider-dot {
+          width: 12px;
+          height: 12px;
+          border-radius: 50%;
+          background: #dee2e6;
+          cursor: pointer;
+          transition: background-color 0.2s;
+        }
+        .slider-dot.active {
+          background: #007bff;
+        }
+        .slider-counter {
+          position: absolute;
+          top: 10px;
+          right: 10px;
+          background: rgba(0, 0, 0, 0.7);
+          color: white;
+          padding: 4px 8px;
+          border-radius: 12px;
+          font-size: 12px;
+          z-index: 10;
+        }
+        .media-type-badge {
+          position: absolute;
+          top: 10px;
+          left: 10px;
+          background: rgba(0, 0, 0, 0.7);
+          color: white;
+          padding: 4px 8px;
+          border-radius: 12px;
+          font-size: 12px;
+          z-index: 10;
+        }
+        .google-maps-button:hover {
+          background-color: #3367d6;
+          transform: translateY(-1px);
         }
       `;
       document.head.appendChild(style);
@@ -152,63 +242,130 @@ function MapClickHandler({ onMapClick, isAdmin }) {
   return null;
 }
 
-// Media gallery component for popup (supports images and videos)
-function MediaGallery({ contentItems }) {
-  const [selectedItem, setSelectedItem] = useState(0);
+// Enhanced Media Slider component for popup
+function MediaSlider({ contentItems }) {
+  const [currentIndex, setCurrentIndex] = useState(0);
 
   if (!contentItems || contentItems.length === 0) return null;
 
-  const currentItem = contentItems[selectedItem];
+  const goToPrevious = useCallback(() => {
+    setCurrentIndex((prevIndex) => 
+      prevIndex === 0 ? contentItems.length - 1 : prevIndex - 1
+    );
+  }, [contentItems.length]);
+
+  const goToNext = useCallback(() => {
+    setCurrentIndex((prevIndex) => 
+      prevIndex === contentItems.length - 1 ? 0 : prevIndex + 1
+    );
+  }, [contentItems.length]);
+
+  const goToSlide = useCallback((index) => {
+    setCurrentIndex(index);
+  }, []);
+
+  // Keyboard navigation
+  useEffect(() => {
+    const handleKeyPress = (e) => {
+      if (e.key === 'ArrowLeft') {
+        goToPrevious();
+      } else if (e.key === 'ArrowRight') {
+        goToNext();
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyPress);
+    return () => {
+      document.removeEventListener('keydown', handleKeyPress);
+    };
+  }, [goToPrevious, goToNext]);
+
+  const currentItem = contentItems[currentIndex];
 
   return (
-    <div>
-      {currentItem.type === 'image' ? (
-        <img
-          src={currentItem.url}
-          alt="Main view"
-          className="main-media main-image"
-          style={mainMediaStyle}
-        />
-      ) : (
-        <iframe
-          src={getYouTubeEmbedUrl(currentItem.videoId)}
-          title="YouTube video"
-          className="main-media youtube-embed"
-          style={{...mainMediaStyle, aspectRatio: '16/9'}}
-          frameBorder="0"
-          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-          allowFullScreen
-        />
-      )}
-      
-      {contentItems.length > 1 && (
-        <div className="media-gallery" style={mediaGalleryStyle}>
+    <div className="media-slider">
+      <div className="slider-container">
+        {/* Counter */}
+        {contentItems.length > 1 && (
+          <div className="slider-counter">
+            {currentIndex + 1} / {contentItems.length}
+          </div>
+        )}
+        
+        {/* Media type badge */}
+        <div className="media-type-badge">
+          {currentItem.type === 'video' ? '🎬 Video' : '📷 Photo'}
+        </div>
+
+        {/* Navigation arrows */}
+        {contentItems.length > 1 && (
+          <>
+            <button className="slider-nav prev" onClick={goToPrevious}>
+              ‹
+            </button>
+            <button className="slider-nav next" onClick={goToNext}>
+              ›
+            </button>
+          </>
+        )}
+
+        {/* Slider content */}
+        <div className="slider-content" style={{ transform: `translateX(-${currentIndex * 100}%)` }}>
           {contentItems.map((item, index) => (
-            <div
-              key={index}
-              className={`gallery-item ${item.type === 'video' ? 'video' : ''}`}
-              style={{
-                ...galleryItemStyle,
-                border: selectedItem === index ? '2px solid #007bff' : '2px solid transparent'
-              }}
-              onClick={() => setSelectedItem(index)}
-            >
-              <img
-                src={item.type === 'image' ? item.url : item.thumbnail}
-                alt={`${item.type} ${index + 1}`}
-                style={galleryThumbnailStyle}
-              />
+            <div key={index} className="slider-item">
+              {item.type === 'image' ? (
+                <img
+                  src={item.url}
+                  alt={`Image ${index + 1}`}
+                  className="slider-image"
+                />
+              ) : (
+                <iframe
+                  src={getYouTubeEmbedUrl(item.videoId)}
+                  title={`Video ${index + 1}`}
+                  className="slider-video"
+                  frameBorder="0"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                />
+              )}
             </div>
           ))}
         </div>
-      )}
-      
-      {contentItems.length > 1 && (
-        <p style={galleryCountStyle}>
-          {selectedItem + 1} of {contentItems.length} items
-        </p>
-      )}
+
+        {/* Indicators/dots */}
+        {contentItems.length > 1 && (
+          <div className="slider-indicators">
+            {contentItems.map((_, index) => (
+              <button
+                key={index}
+                className={`slider-dot ${index === currentIndex ? 'active' : ''}`}
+                onClick={() => goToSlide(index)}
+              />
+            ))}
+          </div>
+        )}
+      </div>
     </div>
+  );
+}
+
+// Location display component
+function LocationDisplay({ position }) {
+  const [locationName, setLocationName] = useState('Loading location...');
+
+  useEffect(() => {
+    if (position) {
+      getLocationName(position.lat, position.lng)
+        .then(setLocationName)
+        .catch(() => setLocationName(`${position.lat.toFixed(6)}, ${position.lng.toFixed(6)}`));
+    }
+  }, [position]);
+
+  return (
+    <p style={popupLocationStyle}>
+      📍 {locationName}
+    </p>
   );
 }
 
@@ -243,6 +400,7 @@ function MarkerInputModal({ isOpen, onClose, onSubmit, position }) {
   const [iconPreview, setIconPreview] = useState(null);
   const [contentItems, setContentItems] = useState([]);
   const [youtubeUrl, setYoutubeUrl] = useState('');
+  const [googleMapsUrl, setGoogleMapsUrl] = useState('');
   const [loading, setLoading] = useState(false);
   const iconInputRef = useRef(null);
   const contentInputRef = useRef(null);
@@ -334,6 +492,7 @@ function MarkerInputModal({ isOpen, onClose, onSubmit, position }) {
           description: description.trim(),
           iconImage,
           contentItems,
+          googleMapsUrl: googleMapsUrl.trim(),
         });
         
         // Reset form
@@ -343,6 +502,7 @@ function MarkerInputModal({ isOpen, onClose, onSubmit, position }) {
         setIconPreview(null);
         setContentItems([]);
         setYoutubeUrl('');
+        setGoogleMapsUrl('');
         if (iconInputRef.current) {
           iconInputRef.current.value = '';
         }
@@ -367,6 +527,7 @@ function MarkerInputModal({ isOpen, onClose, onSubmit, position }) {
     setIconPreview(null);
     setContentItems([]);
     setYoutubeUrl('');
+    setGoogleMapsUrl('');
     if (iconInputRef.current) {
       iconInputRef.current.value = '';
     }
@@ -382,9 +543,7 @@ function MarkerInputModal({ isOpen, onClose, onSubmit, position }) {
     <div style={modalOverlayStyle}>
       <div style={modalContentStyle}>
         <h3 style={modalTitleStyle}>Add Marker (Admin)</h3>
-        <p style={coordinatesStyle}>
-          Coordinates: {position?.lat.toFixed(6)}, {position?.lng.toFixed(6)}
-        </p>
+        <LocationDisplay position={position} />
         
         <form onSubmit={handleSubmit}>
           <div style={formGroupStyle}>
@@ -484,6 +643,21 @@ function MarkerInputModal({ isOpen, onClose, onSubmit, position }) {
 
             <p style={helperTextStyle}>
               Add multiple images and YouTube videos to create a rich media gallery
+            </p>
+          </div>
+
+          <div style={formGroupStyle}>
+            <label style={labelStyle}>🗺️ Google Maps Link (Optional):</label>
+            <input
+              type="url"
+              value={googleMapsUrl}
+              onChange={(e) => setGoogleMapsUrl(e.target.value)}
+              placeholder="Paste Google Maps URL (e.g., https://maps.google.com/...)"
+              style={inputStyle}
+              disabled={loading}
+            />
+            <p style={helperTextStyle}>
+              Add a Google Maps link to help visitors navigate to this location
             </p>
             
             {contentItems.length > 0 && (
@@ -736,10 +910,21 @@ export default function DubaiMap() {
                   )}
                 </div>
                 <p style={popupDescriptionStyle}>{marker.description}</p>
-                <MediaGallery contentItems={marker.contentItems} />
-                <p style={popupCoordsStyle}>
-                  {marker.position.lat.toFixed(6)}, {marker.position.lng.toFixed(6)}
-                </p>
+                <MediaSlider contentItems={marker.contentItems} />
+                {marker.googleMapsUrl && (
+                  <div style={googleMapsLinkStyle}>
+                    <a 
+                      href={marker.googleMapsUrl} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      style={googleMapsButtonStyle}
+                      className="google-maps-button"
+                    >
+                      🗺️ Open in Google Maps
+                    </a>
+                  </div>
+                )}
+                <LocationDisplay position={marker.position} />
                 {marker.createdBy && (
                   <p style={createdByStyle}>
                     Created by: {marker.createdBy}
@@ -952,12 +1137,7 @@ const modalTitleStyle = {
   color: '#333',
 };
 
-const coordinatesStyle = {
-  margin: '0 0 1.5rem 0',
-  fontSize: '0.9rem',
-  color: '#666',
-  fontFamily: 'monospace',
-};
+
 
 const formGroupStyle = {
   marginBottom: '1.5rem',
@@ -1183,45 +1363,29 @@ const popupDescriptionStyle = {
   lineHeight: '1.4',
 };
 
-const mainMediaStyle = {
-  width: '100%',
-  maxHeight: '250px',
-  borderRadius: '4px',
-  marginBottom: '0.5rem',
-};
+ 
 
-const mediaGalleryStyle = {
-  display: 'flex',
-  gap: '0.5rem',
-  overflowX: 'auto',
-  padding: '0.5rem 0',
-};
-
-const galleryItemStyle = {
-  minWidth: '120px',
-  height: '80px',
-  borderRadius: '4px',
-  cursor: 'pointer',
-  transition: 'border-color 0.2s',
-  position: 'relative',
-};
-
-const galleryThumbnailStyle = {
-  width: '100%',
-  height: '100%',
-  objectFit: 'cover',
-  borderRadius: '4px',
-};
-
-const galleryCountStyle = {
-  fontSize: '0.8rem',
-  color: '#666',
+const popupLocationStyle = {
   margin: '0.5rem 0 0 0',
-};
-
-const popupCoordsStyle = {
-  margin: '1rem 0 0 0',
   fontSize: '0.8rem',
   color: '#666',
   fontFamily: 'monospace',
+};
+
+const googleMapsLinkStyle = {
+  margin: '1rem 0',
+  textAlign: 'center',
+};
+
+const googleMapsButtonStyle = {
+  display: 'inline-block',
+  backgroundColor: '#4285f4',
+  color: 'white',
+  padding: '0.75rem 1.5rem',
+  borderRadius: '8px',
+  textDecoration: 'none',
+  fontSize: '0.9rem',
+  fontWeight: 'bold',
+  transition: 'background-color 0.2s, transform 0.1s',
+  boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
 }; 
