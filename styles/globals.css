@@ -1,0 +1,80 @@
+/* Global styles for the Dubai Map application */
+
+* {
+  box-sizing: border-box;
+  padding: 0;
+  margin: 0;
+}
+
+html,
+body {
+  max-width: 100vw;
+  overflow-x: hidden;
+  font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Oxygen,
+    Ubuntu, Cantarell, Fira Sans, Droid Sans, Helvetica Neue, sans-serif;
+}
+
+body {
+  color: #333;
+  background: #f8f9fa;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+/* Spinner animation for loading */
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Ensure leaflet map renders properly */
+.leaflet-container {
+  height: 100%;
+  width: 100%;
+}
+
+/* Fix for leaflet marker icons in production */
+.leaflet-default-icon-path {
+  background-image: url('https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png');
+}
+
+/* Responsive styles */
+@media (max-width: 768px) {
+  /* Make modal responsive on mobile */
+  .modal-content {
+    width: 95% !important;
+    margin: 1rem !important;
+  }
+}
+
+/* Remove default button styles and add hover effects */
+button:hover {
+  opacity: 0.8;
+  transform: translateY(-1px);
+}
+
+button:active {
+  transform: translateY(0);
+}
+
+/* Focus styles for accessibility */
+input:focus,
+button:focus {
+  outline: 2px solid #007bff;
+  outline-offset: 2px;
+}
+
+/* Ensure file input is styled consistently */
+input[type="file"] {
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  padding: 0.5rem;
+  background-color: white;
+}
+
+input[type="file"]:focus {
+  border-color: #007bff;
+} 
