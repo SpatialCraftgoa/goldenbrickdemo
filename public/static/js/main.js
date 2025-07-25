@@ -69,6 +69,9 @@ document.addEventListener('DOMContentLoaded', () => {
             
             // Add map click event
             map.on('click', onMapClick);
+            
+            // Add geolocation control with proper error handling
+            addGeolocationControl();
         } catch (error) {
             console.error('Error initializing map:', error);
             const mapDiv = document.getElementById('map');
@@ -76,6 +79,75 @@ document.addEventListener('DOMContentLoaded', () => {
                 mapDiv.innerHTML = '<div style="color: red; padding: 20px;">Error loading map. Please check console for details.</div>';
             }
         }
+    }
+
+    // Add geolocation control
+    function addGeolocationControl() {
+        const geolocationControl = L.control({position: 'topright'});
+        
+        geolocationControl.onAdd = function() {
+            const container = L.DomUtil.create('div', 'leaflet-bar leaflet-control leaflet-control-custom');
+            container.style.backgroundColor = 'white';
+            container.style.width = '30px';
+            container.style.height = '30px';
+            container.style.cursor = 'pointer';
+            container.innerHTML = '📍';
+            container.style.textAlign = 'center';
+            container.style.lineHeight = '30px';
+            container.title = 'Go to my location';
+            
+            container.onclick = function() {
+                if (!navigator.geolocation) {
+                    console.log('Geolocation is not supported by this browser.');
+                    return;
+                }
+                
+                navigator.geolocation.getCurrentPosition(
+                    function(position) {
+                        const lat = position.coords.latitude;
+                        const lng = position.coords.longitude;
+                        map.setView([lat, lng], 16);
+                        
+                        // Add a temporary marker for user location
+                        const userMarker = L.marker([lat, lng]).addTo(map)
+                            .bindPopup('Your location')
+                            .openPopup();
+                        
+                        // Remove the marker after 3 seconds
+                        setTimeout(() => {
+                            map.removeLayer(userMarker);
+                        }, 3000);
+                    },
+                    function(error) {
+                        console.log('Geolocation error handled gracefully:', error.message);
+                        // Don't show intrusive alerts, just log the error
+                        switch(error.code) {
+                            case error.PERMISSION_DENIED:
+                                console.log('User denied the request for geolocation.');
+                                break;
+                            case error.POSITION_UNAVAILABLE:
+                                console.log('Location information is unavailable.');
+                                break;
+                            case error.TIMEOUT:
+                                console.log('The request to get user location timed out.');
+                                break;
+                            default:
+                                console.log('An unknown error occurred.');
+                                break;
+                        }
+                    },
+                    {
+                        enableHighAccuracy: true,
+                        timeout: 5000,
+                        maximumAge: 0
+                    }
+                );
+            };
+            
+            return container;
+        };
+        
+        geolocationControl.addTo(map);
     }
 
     // --- AUTHENTICATION --- //
@@ -88,12 +160,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 const data = await response.json();
                 user = data.user;
                 console.log('Auth check successful:', user);
+            } else if (response.status === 401) {
+                // 401 is expected when no valid session exists
+                user = null;
+                console.log('No active session - user not logged in');
             } else {
                 user = null;
-                console.log('Auth check failed - no valid session');
+                console.log('Auth check failed with status:', response.status);
             }
         } catch (error) {
-            console.error('Auth check failed:', error);
+            console.error('Auth check network error:', error);
             user = null;
         }
         updateUI();
@@ -224,6 +300,98 @@ document.addEventListener('DOMContentLoaded', () => {
             popupAnchor: [0, -20],
             className: 'custom-circular-marker'
         });
+    }
+
+    // Function to create SVG-based icons (integrated from HTML)
+    function createSvgIcon(markerData) {
+        console.log('createSvgIcon called with:', markerData);
+        const markerType = markerData.markerType || 'standard';
+        
+        // Predefined landmark SVG styles (from your HTML file)
+        const landmarkStyles = {
+            '1': {
+                name: 'Government Buildings',
+                svgPath: './Goldenbrick/styles/embedded.svg',
+                scale: 0.0556640625,
+                anchor: [512.0, 768.0],
+                imgSize: [1024, 1536]
+            },
+            '2': {
+                name: 'Commercial Centers', 
+                svgPath: './Goldenbrick/styles/embedded_1.svg',
+                scale: 0.0556640625,
+                anchor: [512.0, 512.0],
+                imgSize: [1024, 1024]
+            },
+            '3': {
+                name: 'Hotels & Tourism',
+                svgPath: './Goldenbrick/styles/embedded_2.svg',
+                scale: 0.0556640625,
+                anchor: [512.0, 768.0],
+                imgSize: [1024, 1536]
+            },
+            '4': {
+                name: 'Skyscrapers',
+                svgPath: './Goldenbrick/styles/embedded_3.svg',
+                scale: 0.0556640625,
+                anchor: [512.0, 768.0],
+                imgSize: [1024, 1536]
+            },
+            '5': {
+                name: 'Residential',
+                svgPath: './Goldenbrick/styles/embedded_4.svg',
+                scale: 0.0556640625,
+                anchor: [512.0, 768.0],
+                imgSize: [1024, 1536]
+            }
+        };
+        
+        switch(markerType) {
+            case 'landmark':
+                const category = markerData.landmarkCategory || '1';
+                const style = landmarkStyles[category];
+                console.log('Creating landmark icon with style:', style);
+                
+                // Use a more reasonable scale for visibility
+                const iconScale = 0.03; // Smaller scale for better visibility
+                const iconWidth = style.imgSize[0] * iconScale;
+                const iconHeight = style.imgSize[1] * iconScale;
+                
+                return L.divIcon({
+                    html: `<img src="${style.svgPath}" style="width: ${iconWidth}px; height: ${iconHeight}px; display: block;">`,
+                    iconSize: [iconWidth, iconHeight],
+                    iconAnchor: [iconWidth/2, iconHeight], // Anchor at bottom center
+                    popupAnchor: [0, -iconHeight/2],
+                    className: 'landmark-svg-marker'
+                });
+                
+            case 'custom-svg':
+                const svgContent = markerData.customSvgContent || '';
+                const scale = markerData.svgScale || 0.056;
+                const rotation = markerData.svgRotation || 0;
+                const scaledSize = 60 * (scale * 10); // Adjust multiplier as needed
+                
+                return L.divIcon({
+                    html: `<div style="width: ${scaledSize}px; height: ${scaledSize}px; transform: rotate(${rotation}deg); transform-origin: center;">${svgContent}</div>`,
+                    iconSize: [scaledSize, scaledSize],
+                    iconAnchor: [scaledSize/2, scaledSize/2],
+                    popupAnchor: [0, -scaledSize/2],
+                    className: 'custom-svg-marker'
+                });
+                
+            default:
+                // Fall back to standard icon
+                return markerData.iconImage ? createCustomIcon(markerData.iconImage) : undefined;
+        }
+    }
+
+    // Function to create appropriate icon based on marker data
+    function createAppropriateIcon(markerData) {
+        if (markerData.markerType && markerData.markerType !== 'standard') {
+            return createSvgIcon(markerData);
+        } else {
+            return markerData.iconImage ? createCustomIcon(markerData.iconImage) : undefined;
+        }
     }
 
     function createPopupContent(marker) {
@@ -393,9 +561,10 @@ document.addEventListener('DOMContentLoaded', () => {
             markers.forEach(marker => {
                 try {
                     if (marker && marker.position && typeof marker.position.lat === 'number' && typeof marker.position.lng === 'number') {
-                        const icon = marker.iconImage ? createCustomIcon(marker.iconImage) : undefined;
+                        // Use the integrated icon creation function
+                        const icon = createAppropriateIcon(marker);
                         const mapMarker = L.marker([marker.position.lat, marker.position.lng], { icon }).addTo(map);
-                        
+
                         // Bind popup with proper event handling
                         mapMarker.bindPopup(() => {
                             const content = createPopupContent(marker);
@@ -543,14 +712,53 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
         
-        // Process icon image with smaller size for icons
-        const iconFile = document.getElementById('marker-icon').files[0];
-        if (!iconFile) {
-            alert('Please select an icon image');
-            return;
-        }
+        // Get marker type and SVG data
+        const markerType = document.getElementById('marker-type') ? document.getElementById('marker-type').value : 'standard';
+        let iconImageBase64 = null;
+        let svgMarkerData = {};
         
-        const iconImageBase64 = await fileToBase64(iconFile, 200, 0.9); // Smaller icon size
+        // Handle different marker types
+        if (markerType === 'standard') {
+            // Process icon image with smaller size for icons
+            const iconFile = document.getElementById('marker-icon').files[0];
+            if (!iconFile) {
+                alert('Please select an icon image');
+                return;
+            }
+            iconImageBase64 = await fileToBase64(iconFile, 200, 0.9);
+        } else if (markerType === 'landmark') {
+            // Get landmark category
+            const landmarkCategory = document.getElementById('landmark-category') ? document.getElementById('landmark-category').value : '1';
+            svgMarkerData = {
+                markerType: 'landmark',
+                landmarkCategory: landmarkCategory
+            };
+        } else if (markerType === 'custom-svg') {
+            // Get custom SVG data
+            const svgFile = document.getElementById('custom-svg-file').files[0];
+            if (!svgFile) {
+                alert('Please select an SVG file for custom SVG marker');
+                return;
+            }
+            
+            const svgScale = document.getElementById('svg-scale') ? parseFloat(document.getElementById('svg-scale').value) : 0.056;
+            const svgRotation = document.getElementById('svg-rotation') ? parseFloat(document.getElementById('svg-rotation').value) : 0;
+            
+            // Read SVG file content
+            const svgContent = await new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = e => resolve(e.target.result);
+                reader.onerror = reject;
+                reader.readAsText(svgFile);
+            });
+            
+            svgMarkerData = {
+                markerType: 'custom-svg',
+                customSvgContent: svgContent,
+                svgScale: svgScale,
+                svgRotation: svgRotation
+            };
+        }
         
         // Process selected images with progress feedback
         const progressContainer = document.getElementById('image-upload-progress');
@@ -601,7 +809,9 @@ document.addEventListener('DOMContentLoaded', () => {
             description: description,
             googleMapsUrl: googleMapsLink,
             iconImage: iconImageBase64,
-            contentItems: allContentItems
+            contentItems: allContentItems,
+            markerType: markerType,
+            ...svgMarkerData  // Spread SVG marker data
         };
         
         console.log('Sending marker data:', markerData);
@@ -650,7 +860,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     markers.push(newMarker);
                     
                     if (newMarker && newMarker.position && typeof newMarker.position.lat === 'number' && typeof newMarker.position.lng === 'number') {
-                        const icon = newMarker.iconImage ? createCustomIcon(newMarker.iconImage) : undefined;
+                        // Use the integrated icon creation function
+                        const icon = createAppropriateIcon(newMarker);
+                        
                         const mapMarker = L.marker([newMarker.position.lat, newMarker.position.lng], { icon }).addTo(map);
                         
                         // Bind popup with proper event handling
@@ -870,9 +1082,191 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     }
+
+    // SVG Marker Form Handling
+    initializeSvgMarkerInterface();
+
+    function initializeSvgMarkerInterface() {
+        // Predefined landmark SVG styles (same as in createSvgIcon)
+        const landmarkStyles = {
+            '1': {
+                name: 'Government Buildings',
+                svgPath: './Goldenbrick/styles/embedded.svg',
+                scale: 0.0556640625,
+                anchor: [512.0, 768.0],
+                imgSize: [1024, 1536]
+            },
+            '2': {
+                name: 'Commercial Centers', 
+                svgPath: './Goldenbrick/styles/embedded_1.svg',
+                scale: 0.0556640625,
+                anchor: [512.0, 512.0],
+                imgSize: [1024, 1024]
+            },
+            '3': {
+                name: 'Hotels & Tourism',
+                svgPath: './Goldenbrick/styles/embedded_2.svg',
+                scale: 0.0556640625,
+                anchor: [512.0, 768.0],
+                imgSize: [1024, 1536]
+            },
+            '4': {
+                name: 'Skyscrapers',
+                svgPath: './Goldenbrick/styles/embedded_3.svg',
+                scale: 0.0556640625,
+                anchor: [512.0, 768.0],
+                imgSize: [1024, 1536]
+            },
+            '5': {
+                name: 'Residential',
+                svgPath: './Goldenbrick/styles/embedded_4.svg',
+                scale: 0.0556640625,
+                anchor: [512.0, 768.0],
+                imgSize: [1024, 1536]
+            }
+        };
+
+        // DOM elements for SVG marker interface
+        const markerTypeSelect = document.getElementById('marker-type');
+        const standardIconGroup = document.getElementById('standard-icon-group');
+        const landmarkSvgGroup = document.getElementById('landmark-svg-group');
+        const customSvgGroup = document.getElementById('custom-svg-group');
+        const landmarkCategory = document.getElementById('landmark-category');
+        const landmarkPreview = document.getElementById('landmark-preview');
+        const customSvgFile = document.getElementById('custom-svg-file');
+        const customSvgPreview = document.getElementById('custom-svg-preview');
+        const customSvgPreviewContainer = document.getElementById('custom-svg-preview-container');
+        const svgScale = document.getElementById('svg-scale');
+        const svgScaleValue = document.getElementById('svg-scale-value');
+        const svgRotation = document.getElementById('svg-rotation');
+        const svgRotationValue = document.getElementById('svg-rotation-value');
+
+        // Handle marker type selection
+        if (markerTypeSelect) {
+            markerTypeSelect.addEventListener('change', function() {
+                const selectedType = this.value;
+                
+                // Hide all groups first
+                if (standardIconGroup) standardIconGroup.style.display = 'none';
+                if (landmarkSvgGroup) landmarkSvgGroup.style.display = 'none';
+                if (customSvgGroup) customSvgGroup.style.display = 'none';
+                
+                // Show relevant group
+                switch(selectedType) {
+                    case 'standard':
+                        if (standardIconGroup) standardIconGroup.style.display = 'block';
+                        // Make icon required for standard type
+                        const iconInput = document.getElementById('marker-icon');
+                        if (iconInput) iconInput.required = true;
+                        break;
+                    case 'landmark':
+                        if (landmarkSvgGroup) landmarkSvgGroup.style.display = 'block';
+                        const iconInput2 = document.getElementById('marker-icon');
+                        if (iconInput2) iconInput2.required = false;
+                        // Force update landmark preview after a small delay to ensure DOM is ready
+                        setTimeout(updateLandmarkPreview, 100);
+                        break;
+                    case 'custom-svg':
+                        if (customSvgGroup) customSvgGroup.style.display = 'block';
+                        const iconInput3 = document.getElementById('marker-icon');
+                        if (iconInput3) iconInput3.required = false;
+                        break;
+                }
+            });
+        }
+
+        // Handle landmark category changes
+        if (landmarkCategory) {
+            landmarkCategory.addEventListener('change', updateLandmarkPreview);
+        }
+
+        // Update landmark preview
+        function updateLandmarkPreview() {
+            console.log('updateLandmarkPreview called');
+            if (!landmarkCategory || !landmarkPreview) return;
+            
+            const selectedCategory = landmarkCategory.value;
+            const style = landmarkStyles[selectedCategory];
+            console.log('Selected category:', selectedCategory, 'Style:', style);
+            
+            if (style) {
+                console.log('Updating preview with SVG path:', style.svgPath);
+                landmarkPreview.innerHTML = `
+                    <img src="${style.svgPath}" 
+                         style="max-width: 100%; max-height: 100%; object-fit: contain;" 
+                         alt="${style.name} preview"
+                         onload="console.log('Image loaded successfully:', this.src);"
+                         onerror="console.error('Failed to load image:', this.src); this.style.display='none'; this.parentNode.innerHTML='<span style=color:red>Preview failed to load</span>';">
+                `;
+            } else {
+                console.log('Missing style or landmarkPreview element');
+            }
+        }
+
+        // Handle custom SVG file upload
+        if (customSvgFile) {
+            customSvgFile.addEventListener('change', function(e) {
+                const file = e.target.files[0];
+                if (file && file.type === 'image/svg+xml') {
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        const svgContent = e.target.result;
+                        if (customSvgPreview) {
+                            customSvgPreview.innerHTML = svgContent;
+                        }
+                        if (customSvgPreviewContainer) {
+                            customSvgPreviewContainer.style.display = 'block';
+                        }
+                        updateCustomSvgPreview();
+                    };
+                    reader.readAsText(file);
+                }
+            });
+        }
+
+        // Handle SVG scale changes
+        if (svgScale) {
+            svgScale.addEventListener('input', function() {
+                if (svgScaleValue) svgScaleValue.textContent = this.value;
+                updateCustomSvgPreview();
+            });
+        }
+
+        // Handle SVG rotation changes
+        if (svgRotation) {
+            svgRotation.addEventListener('input', function() {
+                if (svgRotationValue) svgRotationValue.textContent = this.value + '°';
+                updateCustomSvgPreview();
+            });
+        }
+
+        // Update custom SVG preview with scale and rotation
+        function updateCustomSvgPreview() {
+            if (!customSvgPreview) return;
+            const svg = customSvgPreview.querySelector('svg');
+            if (svg && svgScale && svgRotation) {
+                const scale = svgScale.value;
+                const rotation = svgRotation.value;
+                svg.style.transform = `scale(${scale * 2}) rotate(${rotation}deg)`;
+                svg.style.transformOrigin = 'center';
+            }
+        }
+
+        // Initialize with default selection
+        if (markerTypeSelect) {
+            markerTypeSelect.dispatchEvent(new Event('change'));
+            // If landmark is selected by default, update its preview
+            if (markerTypeSelect.value === 'landmark') {
+                setTimeout(updateLandmarkPreview, 200);
+            }
+        }
+    }
     
     // Make functions global for onclick handlers
     window.removeContentItem = removeContentItem;
+    window.createSvgIcon = createSvgIcon;
+    window.createAppropriateIcon = createAppropriateIcon;
+    window.createCustomIcon = createCustomIcon;
 
     // Click outside modal to close
     window.addEventListener('click', (e) => {
@@ -887,4 +1281,4 @@ document.addEventListener('DOMContentLoaded', () => {
         checkAuthStatus();
         fetchMarkers();
     }, 100); // Small delay to ensure map is fully initialized
-}); 
+});
