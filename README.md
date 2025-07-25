@@ -1,109 +1,174 @@
-# Dubai Interactive Map with Authentication & Database
+# 🗺️ Dubai Interactive Map - Node.js Edition
 
-A Next.js application featuring an interactive map of Dubai where users can view markers with multimedia content. Includes PostgreSQL database integration with user authentication and role-based access control.
+A full-featured interactive map application for Dubai built with **Node.js**, **Express**, and **Leaflet**. This application allows users to view and interact with location markers on a map, with admin capabilities for adding and managing content.
 
-## Features
+## ✨ Features
 
-- 🗺️ Interactive map centered on Dubai using Leaflet and OpenStreetMap tiles
-- 🔐 **User Authentication System** with login/logout functionality
-- 👑 **Role-Based Access Control** (Admin users can add/delete, normal users view-only)
-- 🗄️ **PostgreSQL Database Integration** for persistent data storage
-- 📍 Click to add custom markers (admin only)
-- 🏷️ Add titles and descriptions to markers
-- 📸 Upload multiple images for rich galleries
-- 🎬 **YouTube Video Support** - embed videos in marker popups
-- 🖼️ Image preview in marker creation modal
-- 📱 Responsive design that works on desktop and mobile
-- ⚡ Server-Side Rendering (SSR) safe with dynamic imports
-- 🎨 Modern, clean UI with proper accessibility features
+### 🔍 **For All Users:**
+- Interactive OpenStreetMap of Dubai
+- View circular plot markers with rich content
+- Click on markers to see detailed information
+- Image slider for multiple photos
+- Embedded YouTube videos
+- Google Maps integration links
+- Responsive design for mobile and desktop
 
-## Database & Authentication
+### 👑 **For Admin Users:**
+- Login with secure authentication
+- Add new plot markers by clicking on the map
+- Upload custom marker icons (automatically made circular)
+- Add multiple images and YouTube videos to markers
+- Include Google Maps links for navigation
+- Delete existing markers
+- Real-time updates without page refresh
 
-### PostgreSQL Configuration
-- **Host:** 3.228.40.132
-- **Database:** live
-- **Username:** postgres
-- **Password:** 123
-
-### User Types
-1. **Admin Users**
-   - **Username:** admin
-   - **Password:** admin
-   - **Permissions:** Can add new markers, delete existing markers, view all markers
-
-2. **Normal Users**
-   - **Permissions:** View-only access to all markers
-   - **Note:** Any login credentials other than admin/admin will be treated as normal user
-
-3. **Guest Users**
-   - **Permissions:** View-only access to all markers without login required
-
-## Getting Started
+## 🚀 **Quick Start**
 
 ### Prerequisites
-
-- Node.js 16.8 or later
-- npm, yarn, or pnpm
-- PostgreSQL database access (configured automatically)
+- Node.js 18+ installed
+- PostgreSQL database access
+- Git
 
 ### Installation
 
-1. Install dependencies:
-```bash
-npm install
-# or
-yarn install
-# or
-pnpm install
-```
+1. **Clone the repository:**
+   ```bash
+   git clone <your-repo-url>
+   cd dubaimap
+   ```
 
-2. Run the development server:
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-```
+2. **Install dependencies:**
+   ```bash
+   npm install
+   ```
 
-3. Open [http://localhost:3000](http://localhost:3000) in your browser to see the application.
+3. **Set up environment variables:**
+   Create a `.env` file in the root directory:
+   ```env
+   # Database Configuration
+   DB_HOST=3.228.40.132
+   DB_NAME=live
+   DB_USER=postgres
+   DB_PASSWORD=123
+   DB_PORT=5432
 
-## Usage
+   # JWT Secret Key
+   JWT_SECRET=your-super-secret-jwt-key-for-production-change-this
 
-### For All Users (Including Guests)
-1. **View the Map**: The application loads with an interactive map centered on Dubai
-2. **Explore Markers**: Click on any existing marker to see its popup with multimedia content
-3. **View Galleries**: Navigate through multiple images and videos in marker popups
+   # Node Environment
+   NODE_ENV=development
 
-### For Admin Users
-1. **Login**: Click the "Login" button and use admin/admin credentials
-2. **Add Markers**: Click anywhere on the map to open the marker creation modal
-3. **Create Rich Content**: 
-   - Enter title and description
-   - Upload an icon image for the map marker
-   - Add multiple images and YouTube videos
-   - Preview content before submission
-4. **Delete Markers**: Click the 🗑️ button in any marker popup to delete it
-5. **Logout**: Use the logout button when finished
+   # Server Port
+   PORT=3000
+   ```
 
-### For Normal Users
-1. **Login**: Click "Login" and use any credentials other than admin/admin
-2. **View Content**: Browse all markers and their multimedia content
-3. **Read-Only Access**: Cannot add or delete markers
+4. **Initialize the database:**
+   ```bash
+   npm run init-db
+   ```
 
-## Technology Stack
+5. **Start the development server:**
+   ```bash
+   npm run dev
+   ```
 
-- **Next.js 14** - React framework with SSR support
-- **React 18** - UI library
-- **PostgreSQL** - Database for persistent storage
-- **React Leaflet** - React components for Leaflet maps
-- **Leaflet** - Open-source JavaScript library for interactive maps
-- **OpenStreetMap** - Map tile provider
-- **JWT** - JSON Web Tokens for authentication
+6. **Access the application:**
+   Open your browser to `http://localhost:3000`
+
+## 🔐 **Login Credentials**
+
+**Admin Access:**
+- Username: `admin`
+- Password: `admin`
+
+## 📋 **API Endpoints**
+
+### Authentication
+- `POST /api/auth/login` - User login
+- `POST /api/auth/logout` - User logout  
+- `GET /api/auth/me` - Get current user info
+
+### Markers/Plots
+- `GET /api/markers` - Get all markers
+- `POST /api/markers` - Create new marker (admin only)
+- `GET /api/markers/:id` - Get single marker
+- `DELETE /api/markers/:id` - Delete marker (admin only)
+
+### Utility
+- `GET /health` - Server health check
+- `GET /` - Main application page
+
+## 🛠️ **Technology Stack**
+
+### Backend
+- **Node.js** - Runtime environment
+- **Express.js** - Web framework
+- **PostgreSQL** - Database
 - **bcryptjs** - Password hashing
-- **FileReader API** - For converting images to base64
+- **jsonwebtoken** - JWT authentication
+- **helmet** - Security middleware
+- **cors** - Cross-origin resource sharing
+- **morgan** - HTTP request logger
 
-## Database Schema
+### Frontend
+- **Vanilla JavaScript** - No framework dependencies
+- **Leaflet** - Interactive maps
+- **HTML5/CSS3** - Modern web standards
+- **OpenStreetMap** - Map tiles
+
+### Security Features
+- JWT-based authentication
+- HTTP-only cookies
+- Password hashing with bcrypt
+- Helmet.js security headers
+- CORS protection
+- Input validation and sanitization
+
+## 📁 **Project Structure**
+
+```
+dubaimap/
+├── server.js                 # Main Express server
+├── package.json             # Dependencies and scripts
+├── .env                     # Environment variables
+├── routes/
+│   ├── auth.js             # Authentication routes
+│   └── markers.js          # Marker/plot routes
+├── scripts/
+│   └── init-db.js          # Database initialization
+├── public/
+│   ├── index.html          # Main HTML page
+│   └── static/
+│       ├── css/
+│       │   └── style.css   # Application styles
+│       ├── js/
+│       │   └── main.js     # Frontend JavaScript
+│       └── images/
+│           └── *.png       # Static images
+├── uploads/                # User uploaded files
+└── README.md              # This file
+```
+
+## 🔧 **Available Scripts**
+
+- `npm start` - Start production server
+- `npm run dev` - Start development server with nodemon
+- `npm run init-db` - Initialize database tables and sample data
+
+## 🌍 **Environment Variables**
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `DB_HOST` | PostgreSQL host | localhost |
+| `DB_NAME` | Database name | dubaimap |
+| `DB_USER` | Database username | postgres |
+| `DB_PASSWORD` | Database password | - |
+| `DB_PORT` | Database port | 5432 |
+| `JWT_SECRET` | JWT signing secret | - |
+| `NODE_ENV` | Environment mode | development |
+| `PORT` | Server port | 3000 |
+
+## 📊 **Database Schema**
 
 ### Users Table
 ```sql
@@ -125,147 +190,116 @@ CREATE TABLE markers (
   latitude DECIMAL(10, 8) NOT NULL,
   longitude DECIMAL(11, 8) NOT NULL,
   icon_image TEXT NOT NULL,
-  content_items JSONB NOT NULL,
+  google_maps_link TEXT,
+  content_items JSONB DEFAULT '[]'::jsonb,
   created_by VARCHAR(50),
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 ```
 
-## API Endpoints
+## 🎯 **Key Features Implementation**
 
-### Authentication
-- `POST /api/auth/login` - User login
-- `POST /api/auth/logout` - User logout
-- `GET /api/auth/me` - Get current user info
+### Circular Marker Icons
+All marker icons are automatically converted to circular format with:
+- 40x40px size
+- White border
+- Drop shadow
+- Responsive hover effects
 
-### Markers
-- `GET /api/markers` - Fetch all markers (public)
-- `POST /api/markers` - Create new marker (admin only)
-- `DELETE /api/markers/[id]` - Delete marker by ID (admin only)
+### Media Slider
+- Simple, lightweight image and video carousel
+- Navigation arrows and dot indicators
+- YouTube video embedding
+- Responsive design
 
-## Project Structure
+### Real-time Updates
+- Immediate UI updates after adding/deleting markers
+- No page refresh required
+- Optimistic UI updates with error handling
 
-```
-dubai-map/
-├── components/
-│   ├── DubaiMap.js          # Main map component with auth integration
-│   └── LoginModal.js        # Authentication modal
-├── pages/
-│   ├── api/
-│   │   ├── auth/            # Authentication endpoints
-│   │   │   ├── login.js     # Login API
-│   │   │   ├── logout.js    # Logout API
-│   │   │   └── me.js        # Current user API
-│   │   └── markers/         # Marker CRUD endpoints
-│   │       ├── index.js     # Get/Create markers
-│   │       └── [id].js      # Delete marker by ID
-│   ├── _app.js              # Custom App component
-│   └── index.js             # Home page with dynamic import
-├── lib/
-│   └── db.js                # PostgreSQL connection and setup
-├── styles/
-│   └── globals.css          # Global styles
-├── package.json             # Dependencies and scripts
-├── next.config.js           # Next.js configuration
-└── README.md               # This file
-```
+### Security
+- JWT tokens stored in HTTP-only cookies
+- Password hashing with bcrypt (12 rounds)
+- Admin role-based access control
+- Input validation and sanitization
 
-## Key Features Explained
+## 🔄 **Migration from Next.js**
 
-### Authentication Flow
-1. Users click "Login" button
-2. Modal presents login form with demo credentials
-3. JWT token stored in HTTP-only cookie upon successful login
-4. Role-based UI updates (admin vs normal user vs guest)
-5. Protected API endpoints check authentication and roles
+This application was successfully converted from Next.js to pure Node.js/Express:
 
-### Marker Management
-- **View**: All users can see markers from database
-- **Create**: Only admin users can add new markers
-- **Delete**: Only admin users can remove markers
-- **Persistence**: All data stored in PostgreSQL database
+### What Changed:
+- ✅ React components → Vanilla JavaScript
+- ✅ Next.js API routes → Express routes
+- ✅ SSR → Client-side rendering
+- ✅ Next.js config → Express middleware
+- ✅ Static file serving → Express static
 
-### Media Gallery System
-- **Mixed Content**: Support for both images and YouTube videos
-- **Thumbnail Navigation**: Click to switch between content items
-- **Video Integration**: Automatic YouTube thumbnail fetching
-- **Base64 Storage**: Images converted to base64 for database storage
+### What Stayed:
+- ✅ All functionality preserved
+- ✅ Database schema unchanged
+- ✅ Authentication system intact
+- ✅ UI/UX design consistent
+- ✅ Admin capabilities maintained
 
-## Security Features
+## 🐛 **Troubleshooting**
 
-- **Password Hashing**: bcryptjs with salt rounds
-- **HTTP-Only Cookies**: JWT tokens not accessible via JavaScript
-- **Role-Based Access**: API endpoints check user permissions
-- **Input Validation**: Server-side validation for all data
-- **SQL Injection Protection**: Parameterized queries
+### Common Issues:
 
-## Browser Support
+1. **Static files not loading (404 errors):**
+   - Ensure the server is properly serving static files
+   - Check file paths in `public/static/` directory
 
-- Modern browsers with ES6+ support
-- FileReader API support
-- CSS Grid and Flexbox support
-- Cookie support for authentication
+2. **Database connection errors:**
+   - Verify `.env` file configuration
+   - Ensure PostgreSQL server is running
+   - Check network connectivity to database
 
-## Performance Considerations
+3. **Login not working:**
+   - Verify admin user exists in database
+   - Check JWT secret is set in `.env`
+   - Clear browser cookies and try again
 
-- Images converted to base64 for simplicity (consider cloud storage for production)
-- Dynamic imports prevent Leaflet SSR issues
-- Database connection pooling for efficient queries
-- Responsive design for mobile optimization
-- Lazy loading of multimedia content
+4. **Map not displaying:**
+   - Check browser console for JavaScript errors
+   - Verify Leaflet CDN resources are loading
+   - Ensure network connectivity for OpenStreetMap tiles
 
-## Customization
+## 📝 **Development**
 
-### Changing Database Configuration
-Update the connection details in `lib/db.js`:
-```javascript
-const pool = new Pool({
-  host: 'your-host',
-  database: 'your-database',
-  user: 'your-username',
-  password: 'your-password',
-  port: 5432
-});
-```
+### Adding New Features:
+1. Backend: Add routes in `routes/` directory
+2. Frontend: Update `public/static/js/main.js`
+3. Database: Add migrations to `scripts/`
+4. Styling: Update `public/static/css/style.css`
 
-### Adding New User Roles
-1. Update the users table schema
-2. Modify authentication middleware in API routes
-3. Update frontend role checks in components
+### Code Style:
+- Use ES6+ JavaScript features
+- Follow RESTful API conventions
+- Implement proper error handling
+- Add appropriate logging
 
-### Changing Map Center
-Update the `DUBAI_CENTER` constant in `components/DubaiMap.js`:
-```javascript
-const DUBAI_CENTER = [latitude, longitude];
-```
+## 🤝 **Contributing**
 
-## Deployment
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Test thoroughly
+5. Submit a pull request
 
-Build the application for production:
-```bash
-npm run build
-npm start
-```
+## 📄 **License**
 
-### Environment Variables (Production)
-Create a `.env.local` file:
-```
-JWT_SECRET=your-secure-secret-key-here
-NODE_ENV=production
-```
+This project is licensed under the MIT License.
 
-The application can be deployed to any platform that supports Next.js:
-- Vercel (recommended)
-- Netlify
-- AWS
-- Docker
+## 🙏 **Acknowledgments**
 
-## Demo Credentials
+- OpenStreetMap contributors for map data
+- Leaflet team for the mapping library
+- Express.js team for the web framework
+- PostgreSQL team for the database system
 
-- **Admin Access:** username: `admin`, password: `admin`
-- **Normal User:** Any other username/password combination
+---
 
-## License
+**🌟 Ready to explore Dubai interactively!** 
 
-This project is open source and available under the MIT License. 
+Access the application at `http://localhost:3000` and start adding your favorite Dubai locations! 
