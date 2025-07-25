@@ -4,6 +4,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let user = null;
     let markers = [];
     let userMarkerLayer = L.layerGroup(); // Group for user-added markers
+    let landmarkLayer; // To hold the landmark layer
     let contentItems = []; // For the marker modal
 
     // --- DOM ELEMENTS --- //
@@ -74,8 +75,10 @@ document.addEventListener('DOMContentLoaded', () => {
             // Add map click event
             map.on('click', onMapClick);
 
-            // Load the static landmark layer
+            // Load the static landmark layer and set up zoom handling
             loadLandmarkLayer();
+            handleLandmarkLayerVisibility(); // Set initial visibility
+            map.on('zoomend', handleLandmarkLayerVisibility); // Update on zoom change
         } catch (error) {
             console.error('Error initializing map:', error);
             const mapDiv = document.getElementById('map');
@@ -563,36 +566,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function submitMarker(e) {
         e.preventDefault();
-        console.log('submitMarker called');
-        
         const title = document.getElementById('marker-title').value;
         const description = document.getElementById('marker-description').value;
         const googleMapsLink = document.getElementById('marker-google-maps').value;
-        const category = document.getElementById('marker-category').value;
         const lat = parseFloat(markerForm.dataset.lat);
         const lng = parseFloat(markerForm.dataset.lng);
-        
-        console.log('Form data:', { title, description, googleMapsLink, category, lat, lng });
-        
+
         if (!title || !description) {
             alert('Please fill in all required fields');
             return;
         }
-        
-        // Process icon image only if no category is selected
-        let iconImageBase64 = null;
+
         const iconFile = document.getElementById('marker-icon').files[0];
-        
-        if (!category && !iconFile) {
-            alert('Please select a marker style or upload a custom icon');
-            return;
-        }
-        
-        if (iconFile) {
-            iconImageBase64 = await fileToBase64(iconFile, 200, 0.9); // Smaller icon size
-        }
-        
-        // Process selected images with progress feedback
+        const iconImageBase64 = iconFile ? await fileToBase64(iconFile, 200, 0.9) : null;
+
         const progressContainer = document.getElementById('image-upload-progress');
         const progressBar = document.getElementById('progress-bar');
         const progressText = document.getElementById('progress-text');
@@ -641,7 +628,7 @@ document.addEventListener('DOMContentLoaded', () => {
             description: description,
             googleMapsUrl: googleMapsLink,
             iconImage: iconImageBase64,
-            category: category ? parseInt(category) : null,
+            category: null, // Category has been removed from the form
             contentItems: allContentItems
         };
         
@@ -678,7 +665,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 // Clear YouTube videos
                 currentContentItems = [];
-                updateContentList();
+                updateContentPreview();
                 
                 // Remove saving indicator
                 document.body.removeChild(savingDiv);
@@ -813,6 +800,21 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // --- LANDMARK LAYER --- //
+    function handleLandmarkLayerVisibility() {
+        if (!map || !landmarkLayer) return;
+
+        const minZoomForLandmarks = 11;
+        if (map.getZoom() >= minZoomForLandmarks) {
+            if (!map.hasLayer(landmarkLayer)) {
+                map.addLayer(landmarkLayer);
+            }
+        } else {
+            if (map.hasLayer(landmarkLayer)) {
+                map.removeLayer(landmarkLayer);
+            }
+        }
+    }
+
     function loadLandmarkLayer() {
         if (typeof json_landmarks_1 !== 'undefined') {
             console.log('Loading Goldenbrick landmark layer...');
@@ -846,7 +848,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 return L.icon.Default.prototype;
             };
 
-            const landmarkLayer = L.geoJSON(json_landmarks_1, {
+            landmarkLayer = L.geoJSON(json_landmarks_1, {
                 pointToLayer: (feature, latlng) => {
                     return L.marker(latlng, { icon: getLandmarkIcon(feature) });
                 },
@@ -858,8 +860,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             });
 
-            landmarkLayer.addTo(map);
-            console.log('Landmark layer added to map.');
+            // The layer is now managed by handleLandmarkLayerVisibility
+            // landmarkLayer.addTo(map);
+            console.log('Landmark layer created and ready.');
         } else {
             console.warn('Landmark data (json_landmarks_1) not found.');
         }
