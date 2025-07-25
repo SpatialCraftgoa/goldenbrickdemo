@@ -28,50 +28,54 @@ main {
 #main-header {
   background-color: #000;
   color: #fff;
-  padding: 1.5rem 2rem;
-  border-bottom: 1px solid #dee2e6;
-  text-align: center;
+  padding: 1rem;
+  border-bottom: 2px solid #333;
   position: relative;
   display: flex;
   align-items: center;
-  justify-content: center;
-  height: 120px;
-  min-height: 120px;
+  justify-content: space-between;
+  height: 100px;
+  min-height: 100px;
 }
 
 .header-logo {
-  position: absolute;
-  top: 50%;
-  transform: translateY(-50%);
-  height: auto;
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+  height: 70px;
+  width: auto;
+  object-fit: contain;
 }
 
 .header-logo.left {
-  left: 2rem;
-  width: 160px;
+  margin-left: 1rem;
+  height: 85px; /* Larger size for Golden Bricks logo */
 }
 
 .header-logo.right {
-  right: 2rem;
-  width: 200px;
+  margin-right: 1rem;
 }
 
 /* Responsive adjustments */
 @media (max-width: 768px) {
-    .header {
-        flex-direction: column;
-        padding: 1rem;
+    #main-header {
+        height: 80px;
+        min-height: 80px;
+        padding: 0.5rem;
     }
 
     .header-logo {
-        height: 40px;
-        margin-bottom: 1rem;
+        height: 50px;
     }
-
-    .header-title {
-        height: 30px;
+    
+    .header-logo.left {
+        margin-left: 0.5rem;
+        height: 65px; /* Larger size for Golden Bricks logo on mobile */
+    }
+    
+    .header-logo.right {
+        margin-right: 0.5rem;
+    }
+    
+    #map {
+        height: calc(100vh - 80px);
     }
 }
 
@@ -79,8 +83,8 @@ main {
 #map {
   flex: 1;
   width: 100%;
-  height: calc(100vh - 120px);
-  border: 2px solid #ccc;
+  height: calc(100vh - 100px);
+  border: none;
   background-color: #f0f0f0;
 }
 
@@ -198,9 +202,9 @@ main {
 
 /* User Controls Styles */
 #user-controls-container {
-    position: absolute;
-    bottom: 2rem;
-    right: 2rem;
+    position: fixed;
+    bottom: 1rem;
+    right: 1rem;
     z-index: 1000;
 }
 
@@ -244,9 +248,9 @@ main {
 
 /* Notice Styles */
 #notice-container {
-    position: absolute;
-    bottom: 2rem;
-    left: 2rem;
+    position: fixed;
+    bottom: 1rem;
+    left: 1rem;
     z-index: 1000;
     width: auto;
     max-width: 400px;
