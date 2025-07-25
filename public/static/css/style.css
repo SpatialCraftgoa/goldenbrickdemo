@@ -345,6 +345,8 @@ main {
 
 /* Custom Map Marker Styles */
 .custom-marker-icon {
+    background: transparent !important;
+    border: none !important;
     border-radius: 50% !important;
     border: 3px solid #fff !important;
     box-shadow: 0 2px 8px rgba(0,0,0,0.3) !important;
@@ -524,4 +526,32 @@ main {
     background-color: #3367d6;
     color: white;
     transform: scale(1.1);
+} 
+
+/* SVG Marker Styles */
+.svg-marker-icon {
+    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
+}
+
+.leaflet-marker-icon.svg-marker-icon {
+    background: transparent !important;
+    border: none !important;
+}
+
+/* Category selector styling */
+#marker-category {
+    width: 100%;
+    padding: 0.75rem;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 1rem;
+    background-color: white;
+}
+
+#custom-icon-group {
+    transition: opacity 0.3s ease;
+}
+
+#custom-icon-group[style*="opacity: 0.6"] label {
+    color: #666;
 } 

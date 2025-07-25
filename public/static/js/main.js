@@ -3,6 +3,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let map;
     let user = null;
     let markers = [];
+    let userMarkerLayer = L.layerGroup(); // Group for user-added markers
     let contentItems = []; // For the marker modal
 
     // --- DOM ELEMENTS --- //
@@ -28,6 +29,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const addYoutubeBtn = document.getElementById('add-youtube-btn');
     const contentPreviewGrid = document.getElementById('content-preview-grid');
     const contentItemCount = document.getElementById('content-item-count');
+    const markerCategory = document.getElementById('marker-category');
+    const customIconGroup = document.getElementById('custom-icon-group');
 
     // --- ERROR CONTROL --- //
     const errorControl = L.control({position: 'topright'});
@@ -56,6 +59,7 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             console.log('Initializing map...');
             map = L.map('map').setView([25.2048, 55.2708], 11); // Dubai coordinates with wider view
+            userMarkerLayer.addTo(map); // Add the group to the map
             console.log('Map initialized successfully');
 
             // Add OpenStreetMap tiles
@@ -69,6 +73,9 @@ document.addEventListener('DOMContentLoaded', () => {
             
             // Add map click event
             map.on('click', onMapClick);
+
+            // Load the static landmark layer
+            loadLandmarkLayer();
         } catch (error) {
             console.error('Error initializing map:', error);
             const mapDiv = document.getElementById('map');
@@ -203,6 +210,10 @@ document.addEventListener('DOMContentLoaded', () => {
         updateContentPreview();
         iconPreview.src = '';
         iconPreviewContainer.style.display = 'none';
+        // Reset category and icon requirements
+        if (markerCategory) markerCategory.value = '';
+        if (iconInput) iconInput.setAttribute('required', '');
+        if (customIconGroup) customIconGroup.style.opacity = '1';
     }
 
     // --- MAP & MARKERS --- //
@@ -216,14 +227,40 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    function createCustomIcon(iconUrl) {
-        return L.divIcon({
-            html: `<div style="background-image: url('${iconUrl}'); background-size: cover; background-position: center; width: 40px; height: 40px; border-radius: 50%; border: 3px solid #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.3);"></div>`,
-            iconSize: [40, 40],
-            iconAnchor: [20, 20],
-            popupAnchor: [0, -20],
-            className: 'custom-circular-marker'
-        });
+    function createCustomIcon(iconUrl, category) {
+        // If a category is provided, use the corresponding image
+        if (category && category >= 1 && category <= 5) {
+            const imageMap = {
+                1: '/styles/embedded.svg',
+                2: '/styles/embedded_1.svg', 
+                3: '/styles/embedded_2.svg',
+                4: '/styles/embedded_3.svg',
+                5: '/styles/embedded_4.svg'
+            };
+            
+            // Create a div with the image as background
+            return L.divIcon({
+                html: `<div style="background-image: url('${imageMap[category]}'); background-size: contain; background-repeat: no-repeat; width: 40px; height: 40px;"></div>`,
+                iconSize: [40, 40],
+                iconAnchor: [20, 20],
+                popupAnchor: [0, -20],
+                className: 'custom-marker-icon'
+            });
+        }
+        
+        // Default behavior for custom uploaded icons
+        if (iconUrl) {
+            return L.divIcon({
+                html: `<div style="background-image: url('${iconUrl}'); background-size: cover; background-position: center; width: 40px; height: 40px; border-radius: 50%; border: 3px solid #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.3);"></div>`,
+                iconSize: [40, 40],
+                iconAnchor: [20, 20],
+                popupAnchor: [0, -20],
+                className: 'custom-circular-marker'
+            });
+        }
+        
+        // Default Leaflet marker if no icon or category
+        return L.icon.Default.prototype;
     }
 
     function createPopupContent(marker) {
@@ -379,12 +416,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
             
-            // Clear only marker layers
-            map.eachLayer(layer => { 
-                if (layer instanceof L.Marker) {
-                    map.removeLayer(layer);
-                }
-            });
+            // Clear only the user-added markers from their dedicated layer group
+            userMarkerLayer.clearLayers();
             
             // Store the markers data
             markers = Array.isArray(markerData) ? markerData : [];
@@ -392,9 +425,11 @@ document.addEventListener('DOMContentLoaded', () => {
             // Add markers to the map
             markers.forEach(marker => {
                 try {
-                    if (marker && marker.position && typeof marker.position.lat === 'number' && typeof marker.position.lng === 'number') {
-                        const icon = marker.iconImage ? createCustomIcon(marker.iconImage) : undefined;
-                        const mapMarker = L.marker([marker.position.lat, marker.position.lng], { icon }).addTo(map);
+                                    if (marker && marker.position && typeof marker.position.lat === 'number' && typeof marker.position.lng === 'number') {
+                    const icon = marker.category ? createCustomIcon(marker.iconImage, marker.category) : 
+                                marker.iconImage ? createCustomIcon(marker.iconImage) : undefined;
+                    const mapMarker = L.marker([marker.position.lat, marker.position.lng], { icon });
+                    userMarkerLayer.addLayer(mapMarker); // Add to the dedicated group
                         
                         // Bind popup with proper event handling
                         mapMarker.bindPopup(() => {
@@ -533,24 +568,29 @@ document.addEventListener('DOMContentLoaded', () => {
         const title = document.getElementById('marker-title').value;
         const description = document.getElementById('marker-description').value;
         const googleMapsLink = document.getElementById('marker-google-maps').value;
+        const category = document.getElementById('marker-category').value;
         const lat = parseFloat(markerForm.dataset.lat);
         const lng = parseFloat(markerForm.dataset.lng);
         
-        console.log('Form data:', { title, description, googleMapsLink, lat, lng });
+        console.log('Form data:', { title, description, googleMapsLink, category, lat, lng });
         
         if (!title || !description) {
             alert('Please fill in all required fields');
             return;
         }
         
-        // Process icon image with smaller size for icons
+        // Process icon image only if no category is selected
+        let iconImageBase64 = null;
         const iconFile = document.getElementById('marker-icon').files[0];
-        if (!iconFile) {
-            alert('Please select an icon image');
+        
+        if (!category && !iconFile) {
+            alert('Please select a marker style or upload a custom icon');
             return;
         }
         
-        const iconImageBase64 = await fileToBase64(iconFile, 200, 0.9); // Smaller icon size
+        if (iconFile) {
+            iconImageBase64 = await fileToBase64(iconFile, 200, 0.9); // Smaller icon size
+        }
         
         // Process selected images with progress feedback
         const progressContainer = document.getElementById('image-upload-progress');
@@ -601,6 +641,7 @@ document.addEventListener('DOMContentLoaded', () => {
             description: description,
             googleMapsUrl: googleMapsLink,
             iconImage: iconImageBase64,
+            category: category ? parseInt(category) : null,
             contentItems: allContentItems
         };
         
@@ -650,7 +691,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     markers.push(newMarker);
                     
                     if (newMarker && newMarker.position && typeof newMarker.position.lat === 'number' && typeof newMarker.position.lng === 'number') {
-                        const icon = newMarker.iconImage ? createCustomIcon(newMarker.iconImage) : undefined;
+                        const icon = newMarker.category ? createCustomIcon(newMarker.iconImage, newMarker.category) : 
+                                    newMarker.iconImage ? createCustomIcon(newMarker.iconImage) : undefined;
                         const mapMarker = L.marker([newMarker.position.lat, newMarker.position.lng], { icon }).addTo(map);
                         
                         // Bind popup with proper event handling
@@ -770,6 +812,59 @@ document.addEventListener('DOMContentLoaded', () => {
         updateContentPreview();
     }
 
+    // --- LANDMARK LAYER --- //
+    function loadLandmarkLayer() {
+        if (typeof json_landmarks_1 !== 'undefined') {
+            console.log('Loading Goldenbrick landmark layer...');
+
+            const getLandmarkIcon = (feature) => {
+                const fid = feature.properties.fid;
+                if (!fid) return L.icon.Default.prototype; // Default marker
+
+                // Icon details derived from the original OpenLayers style file
+                // Scale: 0.0556640625
+                // Size 1: 1024 * scale = 57px, 1536 * scale = 86px
+                // Size 2: 1024 * scale = 57px, 1024 * scale = 57px
+                const iconDetails = {
+                    1: { url: '/styles/embedded.svg', size: [57, 86], anchor: [28.5, 43] },
+                    2: { url: '/styles/embedded_1.svg', size: [57, 57], anchor: [28.5, 28.5] },
+                    3: { url: '/styles/embedded_2.svg', size: [57, 86], anchor: [28.5, 43] },
+                    4: { url: '/styles/embedded_3.svg', size: [57, 86], anchor: [28.5, 43] },
+                    5: { url: '/styles/embedded_4.svg', size: [57, 86], anchor: [28.5, 43] }
+                };
+
+                const details = iconDetails[fid];
+
+                if (details) {
+                    return L.icon({
+                        iconUrl: details.url,
+                        iconSize: details.size,
+                        iconAnchor: details.anchor,
+                        popupAnchor: [0, -details.size[1] / 2]
+                    });
+                }
+                return L.icon.Default.prototype;
+            };
+
+            const landmarkLayer = L.geoJSON(json_landmarks_1, {
+                pointToLayer: (feature, latlng) => {
+                    return L.marker(latlng, { icon: getLandmarkIcon(feature) });
+                },
+                onEachFeature: (feature, layer) => {
+                    // You can add popups here from feature properties if needed
+                    if (feature.properties && feature.properties.name) {
+                         layer.bindPopup(feature.properties.name);
+                    }
+                }
+            });
+
+            landmarkLayer.addTo(map);
+            console.log('Landmark layer added to map.');
+        } else {
+            console.warn('Landmark data (json_landmarks_1) not found.');
+        }
+    }
+
     // --- EVENT LISTENERS --- //
     if (closeLoginBtn) closeLoginBtn.addEventListener('click', closeLoginModal);
     if (cancelLoginBtn) cancelLoginBtn.addEventListener('click', closeLoginModal);
@@ -867,6 +962,22 @@ document.addEventListener('DOMContentLoaded', () => {
             if (e.key === 'Enter') {
                 e.preventDefault();
                 addYouTubeVideo();
+            }
+        });
+    }
+    
+    // Category dropdown handling
+    if (markerCategory) {
+        markerCategory.addEventListener('change', (e) => {
+            const selectedCategory = e.target.value;
+            if (selectedCategory) {
+                // If a category is selected, make icon upload optional
+                iconInput.removeAttribute('required');
+                customIconGroup.style.opacity = '0.6';
+            } else {
+                // If no category, icon upload is required
+                iconInput.setAttribute('required', '');
+                customIconGroup.style.opacity = '1';
             }
         });
     }

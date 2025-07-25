@@ -83,9 +83,21 @@
                         <p class="helper-text">Optional: Paste Google Maps link for this location</p>
                     </div>
                     <div class="form-group">
-                        <label for="marker-icon">Icon Image (for map marker):</label>
-                        <input type="file" id="marker-icon" accept="image/*" required>
-                        <p class="helper-text">This image will appear as the circular marker on the map.</p>
+                        <label for="marker-category">Marker Style:</label>
+                        <select id="marker-category" name="category">
+                            <option value="">Custom Icon (Upload Below)</option>
+                            <option value="1">Style 1 - Pin Marker</option>
+                            <option value="2">Style 2 - Round Marker</option>
+                            <option value="3">Style 3 - Location Marker</option>
+                            <option value="4">Style 4 - Place Marker</option>
+                            <option value="5">Style 5 - Landmark Marker</option>
+                        </select>
+                        <p class="helper-text">Choose a predefined marker style or upload a custom icon below</p>
+                    </div>
+                    <div class="form-group" id="custom-icon-group">
+                        <label for="marker-icon">Custom Icon Image:</label>
+                        <input type="file" id="marker-icon" accept="image/*">
+                        <p class="helper-text">Upload a custom icon (required if no marker style is selected above)</p>
                         <div id="icon-preview-container" style="display: none;">
                             <p>Icon Preview:</p>
                             <img id="icon-preview" src="" alt="Icon preview">
@@ -135,8 +147,11 @@
     <!-- Leaflet JavaScript -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" 
             integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-    
-    <!-- Custom JavaScript -->
+
+    <!-- Goldenbrick Layer Data -->
+    <script src="/Goldenbrick/layers/landmarks_1.js"></script>
+
+    <!-- Main Application Script -->
     <script src="/static/js/main.js"></script>
 </body>
-</html> 
+</html>

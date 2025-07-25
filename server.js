@@ -47,6 +47,9 @@ app.use(cookieParser());
 // Serve static files
 app.use('/static', express.static(path.join(__dirname, 'public/static')));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+app.use('/Goldenbrick', express.static(path.join(__dirname, 'Goldenbrick')));
+// Serve QGIS2Web style icons at root /styles path for compatibility
+app.use('/styles', express.static(path.join(__dirname, 'Goldenbrick/styles')));
 app.use(express.static(path.join(__dirname, 'public')));
 
 // API Routes

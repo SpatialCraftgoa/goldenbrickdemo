@@ -36,7 +36,7 @@ export default async function handler(req, res) {
       // Fetch all markers - accessible to all users (authenticated and non-authenticated)
       const result = await db.query(`
         SELECT id, title, description, latitude, longitude, 
-               icon_image, content_items, google_maps_url, created_by, created_at 
+               icon_image, content_items, google_maps_url, category, created_by, created_at 
         FROM markers 
         ORDER BY created_at DESC
       `);
@@ -52,6 +52,7 @@ export default async function handler(req, res) {
         iconImage: row.icon_image,
         contentItems: row.content_items,
         googleMapsUrl: row.google_maps_url,
+        category: row.category,
         createdBy: row.created_by,
         createdAt: row.created_at
       }));
@@ -66,24 +67,30 @@ export default async function handler(req, res) {
         return res.status(403).json({ message: 'Admin access required' });
       }
 
-      const { title, description, position, iconImage, contentItems, googleMapsUrl } = req.body;
+      const { title, description, position, iconImage, contentItems, googleMapsUrl, category } = req.body;
 
-      if (!title || !description || !position || !iconImage || !contentItems) {
+      if (!title || !description || !position || !contentItems) {
         return res.status(400).json({ message: 'Missing required fields' });
+      }
+      
+      // Validate that either category or iconImage is provided
+      if (!category && !iconImage) {
+        return res.status(400).json({ message: 'Either category or custom icon image is required' });
       }
 
       const result = await db.query(`
-        INSERT INTO markers (title, description, latitude, longitude, icon_image, content_items, google_maps_url, created_by)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        INSERT INTO markers (title, description, latitude, longitude, icon_image, content_items, google_maps_url, category, created_by)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
         RETURNING *
       `, [
         title,
         description,
         position.lat,
         position.lng,
-        iconImage,
+        iconImage || null,
         JSON.stringify(contentItems),
         googleMapsUrl || null,
+        category || null,
         user.username
       ]);
 
@@ -98,6 +105,7 @@ export default async function handler(req, res) {
         iconImage: result.rows[0].icon_image,
         contentItems: result.rows[0].content_items,
         googleMapsUrl: result.rows[0].google_maps_url,
+        category: result.rows[0].category,
         createdBy: result.rows[0].created_by,
         createdAt: result.rows[0].created_at
       };
