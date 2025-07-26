@@ -373,15 +373,17 @@ document.addEventListener('DOMContentLoaded', () => {
     function createMediaSlider(contentItems) {
         if (!contentItems || contentItems.length === 0) return '';
         
+        const sliderId = 'slider-' + Date.now() + Math.random().toString(36).substr(2, 9);
+        
         let mediaItemsHTML = '';
         contentItems.forEach((item, index) => {
             const activeClass = index === 0 ? 'active' : '';
             if (item.type === 'image') {
-                mediaItemsHTML += `<div class="media-item ${activeClass}"><img src="${item.url}" alt="Content image" onerror="this.style.display='none'"></div>`;
+                mediaItemsHTML += `<div class="media-slide ${activeClass}"><img src="${item.url}" alt="Content image" onerror="this.style.display='none'"></div>`;
             } else if (item.type === 'video' || item.type === 'youtube') {
                 const videoId = extractYouTubeId(item.url);
                 if (videoId) {
-                    mediaItemsHTML += `<div class="media-item ${activeClass}">
+                    mediaItemsHTML += `<div class="media-slide ${activeClass}">
                         <iframe src="https://www.youtube.com/embed/${videoId}?rel=0&modestbranding=1&controls=1&enablejsapi=1" 
                                 width="100%"
                                 height="200"
@@ -394,25 +396,35 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
         
-        let controlsHTML = '';
-        const sliderId = 'slider-' + Date.now();
-        
+        // Create navigation dots
+        let dotsHTML = '';
         if (contentItems.length > 1) {
-            controlsHTML = `
-                <div class="slider-controls">
-                    <button class="slider-btn" onclick="navigateSlider('${sliderId}', -1)">❮ Prev</button>
-                    <span class="slider-counter" id="${sliderId}-counter">1 / ${contentItems.length}</span>
-                    <button class="slider-btn" onclick="navigateSlider('${sliderId}', 1)">Next ❯</button>
-                </div>
+            dotsHTML = '<div class="slider-dots">';
+            for (let i = 0; i < contentItems.length; i++) {
+                const activeClass = i === 0 ? 'active' : '';
+                dotsHTML += `<span class="slider-dot ${activeClass}" data-slide="${i}"></span>`;
+            }
+            dotsHTML += '</div>';
+        }
+        
+        // Create navigation arrows (only if more than 1 item)
+        let arrowsHTML = '';
+        if (contentItems.length > 1) {
+            arrowsHTML = `
+                <button class="slider-arrow slider-prev" type="button">❮</button>
+                <button class="slider-arrow slider-next" type="button">❯</button>
             `;
         }
         
         return `
-            <div class="media-slider" id="${sliderId}" data-current-slide="0" data-total-slides="${contentItems.length}">
+            <div class="media-slider-wrapper" id="${sliderId}" data-current-slide="0" data-total-slides="${contentItems.length}">
                 <div class="media-slider-container">
-                    ${mediaItemsHTML}
+                    ${arrowsHTML}
+                    <div class="media-slider-track">
+                        ${mediaItemsHTML}
+                    </div>
                 </div>
-                ${controlsHTML}
+                ${dotsHTML}
             </div>
         `;
     }
@@ -440,39 +452,83 @@ document.addEventListener('DOMContentLoaded', () => {
         return null;
     }
 
-    // Global slider navigation function
+    // Enhanced slider navigation function
     window.navigateSlider = function(sliderId, direction) {
-        const slider = document.getElementById(sliderId);
-        if (!slider) return;
+        const sliderWrapper = document.getElementById(sliderId);
+        if (!sliderWrapper) return;
         
-        const mediaItems = slider.querySelectorAll('.media-item');
-        const counter = document.getElementById(sliderId + '-counter');
-        const totalSlides = parseInt(slider.dataset.totalSlides);
-        let currentSlide = parseInt(slider.dataset.currentSlide);
+        const slides = sliderWrapper.querySelectorAll('.media-slide');
+        const dots = sliderWrapper.querySelectorAll('.slider-dot');
+        const totalSlides = parseInt(sliderWrapper.dataset.totalSlides);
+        let currentSlide = parseInt(sliderWrapper.dataset.currentSlide);
         
-        if (mediaItems.length <= 1) return;
+        if (slides.length <= 1) return;
         
-        // Remove active class from current slide
-        mediaItems[currentSlide].classList.remove('active');
+        // Remove active class from current slide and dot
+        slides[currentSlide].classList.remove('active');
+        if (dots[currentSlide]) dots[currentSlide].classList.remove('active');
         
         // Calculate new slide index
-        currentSlide = currentSlide + direction;
-        if (currentSlide < 0) currentSlide = totalSlides - 1;
-        if (currentSlide >= totalSlides) currentSlide = 0;
+        if (typeof direction === 'number') {
+            // Arrow navigation
+            currentSlide = currentSlide + direction;
+            if (currentSlide < 0) currentSlide = totalSlides - 1;
+            if (currentSlide >= totalSlides) currentSlide = 0;
+        } else {
+            // Direct navigation (from dots)
+            currentSlide = direction;
+        }
         
-        // Add active class to new slide
-        mediaItems[currentSlide].classList.add('active');
-        
-        // Update counter
-        if (counter) counter.textContent = `${currentSlide + 1} / ${totalSlides}`;
+        // Add active class to new slide and dot
+        slides[currentSlide].classList.add('active');
+        if (dots[currentSlide]) dots[currentSlide].classList.add('active');
         
         // Update slider data
-        slider.dataset.currentSlide = currentSlide;
+        sliderWrapper.dataset.currentSlide = currentSlide;
         
         console.log(`Slider ${sliderId}: moved to slide ${currentSlide + 1}/${totalSlides}`);
     };
 
-    function renderMarkers(markerData) {
+    // Attach slider events to popup
+    function attachSliderEvents(popup) {
+        const sliders = popup.querySelectorAll('.media-slider-wrapper');
+        sliders.forEach(slider => {
+            const sliderId = slider.id;
+            
+            // Handle arrow navigation
+            const prevBtn = slider.querySelector('.slider-prev');
+            const nextBtn = slider.querySelector('.slider-next');
+            
+            if (prevBtn) {
+                prevBtn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    window.navigateSlider(sliderId, -1);
+                });
+            }
+            
+            if (nextBtn) {
+                nextBtn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    window.navigateSlider(sliderId, 1);
+                });
+            }
+            
+            // Handle dot navigation
+            const dots = slider.querySelectorAll('.slider-dot');
+            dots.forEach((dot, index) => {
+                dot.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    window.navigateSlider(sliderId, index);
+                });
+            });
+        });
+    }
+
+    // Function to add markers to the map
+    function addMarkersToMap(markerData) {
         try {
             if (!map) {
                 console.error('Map is not initialized yet');
@@ -514,7 +570,7 @@ document.addEventListener('DOMContentLoaded', () => {
             
             console.log(`Rendered ${markers.length} user plots on the map`);
         } catch (error) {
-            console.error('Error in renderMarkers:', error);
+            console.error('Error in addMarkersToMap:', error);
             if (map && errorControl) {
                 errorControl.addTo(map).show('Error displaying plots');
             }
@@ -523,26 +579,38 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Attach slider events to popup
     function attachSliderEvents(popup) {
-        const sliders = popup.querySelectorAll('.media-slider');
+        const sliders = popup.querySelectorAll('.media-slider-wrapper');
         sliders.forEach(slider => {
             const sliderId = slider.id;
-            const buttons = slider.querySelectorAll('.slider-btn');
             
-            buttons.forEach(btn => {
-                // Remove any existing onclick attribute and add event listener
-                const onclickAttr = btn.getAttribute('onclick');
-                if (onclickAttr) {
-                    btn.removeAttribute('onclick');
-                    
-                    // Parse the direction from the onclick attribute
-                    const direction = onclickAttr.includes('-1') ? -1 : 1;
-                    
-                    btn.addEventListener('click', function(e) {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        window.navigateSlider(sliderId, direction);
-                    });
-                }
+            // Handle arrow navigation
+            const prevBtn = slider.querySelector('.slider-prev');
+            const nextBtn = slider.querySelector('.slider-next');
+            
+            if (prevBtn) {
+                prevBtn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    window.navigateSlider(sliderId, -1);
+                });
+            }
+            
+            if (nextBtn) {
+                nextBtn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    window.navigateSlider(sliderId, 1);
+                });
+            }
+            
+            // Handle dot navigation
+            const dots = slider.querySelectorAll('.slider-dot');
+            dots.forEach((dot, index) => {
+                dot.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    window.navigateSlider(sliderId, index);
+                });
             });
         });
     }
@@ -556,7 +624,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 throw new Error('Server returned '+response.status);
             }
             const data = await response.json();
-            renderMarkers(data.markers);
+            addMarkersToMap(data.markers);
         } catch (error) {
             console.error('Error fetching markers:', error);
             if(map){ 
