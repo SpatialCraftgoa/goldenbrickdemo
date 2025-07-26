@@ -1,4 +1,9 @@
 document.addEventListener('DOMContentLoaded', () => {
+    // --- CONFIGURATION --- //
+    // Base path for API calls - adjust for subdirectory deployment
+    const BASE_PATH = window.location.pathname.startsWith('/goldenbrickdemo') ? '/goldenbrickdemo' : '';
+    const API_BASE = `${BASE_PATH}/api`;
+    
     // --- STATE --- //
     let map;
     let user = null;
@@ -88,7 +93,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const landmarkIcons = initializeLandmarkIcons();
             
             // Try to get additional icons from the server API
-            const response = await fetch('/api/markers/icons', {
+            const response = await fetch(`${API_BASE}/markers/icons`, {
                 credentials: 'same-origin'
             });
             
@@ -157,7 +162,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- AUTHENTICATION --- //
     async function checkAuthStatus() {
         try {
-            const response = await fetch('/api/auth/me', {
+            const response = await fetch(`${API_BASE}/auth/me`, {
                 credentials: 'same-origin'
             });
             if (response.ok) {
@@ -181,7 +186,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const data = Object.fromEntries(formData.entries());
 
         try {
-            const response = await fetch('/api/auth/login', {
+            const response = await fetch(`${API_BASE}/auth/login`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 credentials: 'same-origin',
@@ -206,7 +211,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function handleLogout() {
         try {
-            await fetch('/api/auth/logout', { 
+            await fetch(`${API_BASE}/auth/logout`, { 
                 method: 'POST',
                 credentials: 'same-origin'
             });
@@ -617,7 +622,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function fetchMarkers() {
         try {
-            const response = await fetch('/api/markers', {
+            const response = await fetch(`${API_BASE}/markers`, {
                 credentials: 'same-origin'
             });
             if(!response.ok){
@@ -698,7 +703,7 @@ document.addEventListener('DOMContentLoaded', () => {
             deletingDiv.innerHTML = '<div style="text-align: center;">🗑️ Deleting plot...</div>';
             document.body.appendChild(deletingDiv);
             
-            const response = await fetch(`/api/markers/${markerId}`, {
+            const response = await fetch(`${API_BASE}/markers/${markerId}`, {
                 method: 'DELETE',
                 credentials: 'same-origin'
             });
@@ -822,7 +827,7 @@ document.addEventListener('DOMContentLoaded', () => {
         document.body.appendChild(savingDiv);
         
         try {
-            const response = await fetch('/api/markers', {
+            const response = await fetch(`${API_BASE}/markers`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
