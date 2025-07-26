@@ -1,6 +1,8 @@
 const express = require('express');
 const jwt = require('jsonwebtoken');
 const { Pool } = require('pg');
+const fs = require('fs').promises;
+const path = require('path');
 const router = express.Router();
 
 // Database connection
@@ -182,6 +184,53 @@ router.delete('/:id', authenticateToken, requireAdmin, async (req, res) => {
   }
 });
 
+// GET /api/markers/icons - Get available marker icons  
+router.get('/icons', async (req, res) => {
+  try {
+    const markersDir = path.join(__dirname, '..', 'public', 'static', 'images', 'markers');
+    console.log('Scanning directory:', markersDir);
+    
+    // Read the markers directory
+    const files = await fs.readdir(markersDir);
+    
+    // Filter for SVG files and create icon data
+    const svgFiles = files.filter(file => file.toLowerCase().endsWith('.svg'));
+    const availableIcons = {};
+    
+    svgFiles.forEach((filename, index) => {
+      const categoryId = index + 1;
+      
+      // Determine size based on filename pattern (special case for _1.svg)
+      const size = filename.includes('_1.svg') ? [57, 57] : [57, 86];
+      const anchor = filename.includes('_1.svg') ? [28.5, 28.5] : [28.5, 43];
+      
+      availableIcons[categoryId] = {
+        url: `/static/images/markers/${filename}`,
+        filename: filename,
+        size: size,
+        anchor: anchor,
+        categoryId: categoryId
+      };
+    });
+    
+    console.log(`Found ${svgFiles.length} SVG marker icons`);
+    
+    res.json({
+      success: true,
+      icons: availableIcons,
+      count: svgFiles.length
+    });
+    
+  } catch (error) {
+    console.error('Error scanning marker icons:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Failed to scan marker icons',
+      error: error.message 
+    });
+  }
+});
+
 // GET /api/markers/:id - Get single marker
 router.get('/:id', async (req, res) => {
   try {
@@ -234,4 +283,4 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-module.exports = router; 
+module.exports = router;

@@ -6,6 +6,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let userMarkerLayer = L.layerGroup(); // Group for user-added markers
     let landmarkLayer; // To hold the landmark layer
     let contentItems = []; // For the marker modal
+    let availableMarkerIcons = {}; // Dynamic marker icons cache
 
     // --- DOM ELEMENTS --- //
     const userControlsContainer = document.getElementById('user-controls-container');
@@ -32,6 +33,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const contentItemCount = document.getElementById('content-item-count');
     const markerCategory = document.getElementById('marker-category');
     const customIconGroup = document.getElementById('custom-icon-group');
+    const isLandmarkCheckbox = document.getElementById('marker-is-landmark');
 
     // --- ERROR CONTROL --- //
     const errorControl = L.control({position: 'topright'});
@@ -56,6 +58,90 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     // --- INITIALIZATION --- //
+    
+    // Dynamic marker icon scanning
+    async function scanAvailableMarkerIcons() {
+        try {
+            console.log('Scanning for available marker icons...');
+            
+            // Try to get the list from the server API first
+            const response = await fetch('/api/markers/icons', {
+                credentials: 'same-origin'
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                if (data.success && data.icons) {
+                    availableMarkerIcons = data.icons;
+                    console.log(`Loaded ${data.count} marker icons from server:`, availableMarkerIcons);
+                    return availableMarkerIcons;
+                }
+            }
+            
+            // Fallback: Try to load known patterns and detect which ones exist
+            console.log('Server API failed, using fallback detection...');
+            const iconPatterns = [
+                'embedded.svg',
+                'embedded_1.svg', 
+                'embedded_2.svg',
+                'embedded_3.svg',
+                'embedded_4.svg'
+            ];
+            
+            const baseUrl = '/static/images/markers/';
+            const foundIcons = {};
+            let categoryIndex = 1;
+            
+            for (const iconFile of iconPatterns) {
+                try {
+                    // Test if the icon exists by attempting to load it
+                    const iconExists = await testIconExists(baseUrl + iconFile);
+                    if (iconExists) {
+                        foundIcons[categoryIndex] = {
+                            url: baseUrl + iconFile,
+                            filename: iconFile,
+                            size: iconFile.includes('_1.svg') ? [57, 57] : [57, 86], // Special case for _1
+                            anchor: iconFile.includes('_1.svg') ? [28.5, 28.5] : [28.5, 43]
+                        };
+                        categoryIndex++;
+                    }
+                } catch (error) {
+                    // Icon doesn't exist, skip it
+                    console.log(`Icon ${iconFile} not found, skipping...`);
+                }
+            }
+            
+            availableMarkerIcons = foundIcons;
+            console.log(`Found ${Object.keys(foundIcons).length} marker icons:`, foundIcons);
+            
+            return foundIcons;
+        } catch (error) {
+            console.error('Error scanning marker icons:', error);
+            // Fallback to hardcoded icons if scanning fails
+            availableMarkerIcons = {
+                1: { url: '/static/images/markers/embedded.svg', size: [57, 86], anchor: [28.5, 43] },
+                2: { url: '/static/images/markers/embedded_1.svg', size: [57, 57], anchor: [28.5, 28.5] },
+                3: { url: '/static/images/markers/embedded_2.svg', size: [57, 86], anchor: [28.5, 43] },
+                4: { url: '/static/images/markers/embedded_3.svg', size: [57, 86], anchor: [28.5, 43] },
+                5: { url: '/static/images/markers/embedded_4.svg', size: [57, 86], anchor: [28.5, 43] }
+            };
+            return availableMarkerIcons;
+        }
+    }
+    
+    // Helper function to test if an icon exists
+    function testIconExists(iconUrl) {
+        return new Promise((resolve) => {
+            const img = new Image();
+            img.onload = () => resolve(true);
+            img.onerror = () => resolve(false);
+            img.src = iconUrl;
+            
+            // Set a timeout to avoid hanging
+            setTimeout(() => resolve(false), 2000);
+        });
+    }
+
     function initMap() {
         try {
             console.log('Initializing map...');
@@ -75,8 +161,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // Add map click event
             map.on('click', onMapClick);
 
-            // Load the static landmark layer and set up zoom handling
-            loadLandmarkLayer();
+            // Note: loadLandmarkLayer() will be called after icons are scanned
             handleLandmarkLayerVisibility(); // Set initial visibility
             map.on('zoomend', handleLandmarkLayerVisibility); // Update on zoom change
         } catch (error) {
@@ -231,19 +316,13 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function createCustomIcon(iconUrl, category) {
-        // If a category is provided, use the corresponding image
-        if (category && category >= 1 && category <= 5) {
-            const imageMap = {
-                1: '/styles/embedded.svg',
-                2: '/styles/embedded_1.svg', 
-                3: '/styles/embedded_2.svg',
-                4: '/styles/embedded_3.svg',
-                5: '/styles/embedded_4.svg'
-            };
+        // If a category is provided, use the corresponding image from dynamic scan
+        if (category && availableMarkerIcons[category]) {
+            const iconData = availableMarkerIcons[category];
             
             // Create a div with the image as background
             return L.divIcon({
-                html: `<div style="background-image: url('${imageMap[category]}'); background-size: contain; background-repeat: no-repeat; width: 40px; height: 40px;"></div>`,
+                html: `<div style="background-image: url('${iconData.url}'); background-size: contain; background-repeat: no-repeat; width: 40px; height: 40px;"></div>`,
                 iconSize: [40, 40],
                 iconAnchor: [20, 20],
                 popupAnchor: [0, -20],
@@ -263,7 +342,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         
         // Default Leaflet marker if no icon or category
-        return L.icon.Default.prototype;
+        return new L.Icon.Default();
     }
 
     function createPopupContent(marker) {
@@ -425,15 +504,19 @@ document.addEventListener('DOMContentLoaded', () => {
             // Store the markers data
             markers = Array.isArray(markerData) ? markerData : [];
             
-            // Add markers to the map
-            markers.forEach(marker => {
+            // Separate landmarks from regular markers
+            const regularMarkers = markers.filter(marker => !marker.isLandmark);
+            const landmarkMarkers = markers.filter(marker => marker.isLandmark);
+            
+            // Add regular markers to the user layer
+            regularMarkers.forEach(marker => {
                 try {
-                                    if (marker && marker.position && typeof marker.position.lat === 'number' && typeof marker.position.lng === 'number') {
-                    const icon = marker.category ? createCustomIcon(marker.iconImage, marker.category) : 
-                                marker.iconImage ? createCustomIcon(marker.iconImage) : undefined;
-                    const mapMarker = L.marker([marker.position.lat, marker.position.lng], { icon });
-                    userMarkerLayer.addLayer(mapMarker); // Add to the dedicated group
-                        
+                    if (marker && marker.position && typeof marker.position.lat === 'number' && typeof marker.position.lng === 'number') {
+                        const icon = marker.category ? createCustomIcon(marker.iconImage, marker.category) : 
+                                    marker.iconImage ? createCustomIcon(marker.iconImage) : undefined;
+                        const mapMarker = L.marker([marker.position.lat, marker.position.lng], { icon });
+                        userMarkerLayer.addLayer(mapMarker); // Add to the dedicated group
+                            
                         // Bind popup with proper event handling
                         mapMarker.bindPopup(() => {
                             const content = createPopupContent(marker);
@@ -452,7 +535,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             });
             
-            console.log(`Rendered ${markers.length} plots on the map`);
+            // Update landmark layer with database landmarks
+            updateLandmarkLayer(landmarkMarkers);
+            
+            console.log(`Rendered ${regularMarkers.length} plots and ${landmarkMarkers.length} landmarks on the map`);
         } catch (error) {
             console.error('Error in renderMarkers:', error);
             if (map && errorControl) {
@@ -818,34 +904,30 @@ document.addEventListener('DOMContentLoaded', () => {
     function loadLandmarkLayer() {
         if (typeof json_landmarks_1 !== 'undefined') {
             console.log('Loading Goldenbrick landmark layer...');
+            console.log('Available marker icons:', availableMarkerIcons);
 
             const getLandmarkIcon = (feature) => {
                 const fid = feature.properties.fid;
-                if (!fid) return L.icon.Default.prototype; // Default marker
+                console.log(`Creating icon for landmark fid: ${fid} (type: ${typeof fid})`);
+                
+                if (!fid) return new L.Icon.Default(); // Default marker
 
-                // Icon details derived from the original OpenLayers style file
-                // Scale: 0.0556640625
-                // Size 1: 1024 * scale = 57px, 1536 * scale = 86px
-                // Size 2: 1024 * scale = 57px, 1024 * scale = 57px
-                const iconDetails = {
-                    1: { url: '/styles/embedded.svg', size: [57, 86], anchor: [28.5, 43] },
-                    2: { url: '/styles/embedded_1.svg', size: [57, 57], anchor: [28.5, 28.5] },
-                    3: { url: '/styles/embedded_2.svg', size: [57, 86], anchor: [28.5, 43] },
-                    4: { url: '/styles/embedded_3.svg', size: [57, 86], anchor: [28.5, 43] },
-                    5: { url: '/styles/embedded_4.svg', size: [57, 86], anchor: [28.5, 43] }
-                };
-
-                const details = iconDetails[fid];
-
-                if (details) {
+                // Convert fid to number for icon lookup (fid might be string from GeoJSON)
+                const fidNumber = parseInt(fid);
+                const iconData = availableMarkerIcons[fidNumber];
+                
+                if (iconData) {
+                    console.log(`Using custom icon for fid ${fid}:`, iconData);
                     return L.icon({
-                        iconUrl: details.url,
-                        iconSize: details.size,
-                        iconAnchor: details.anchor,
-                        popupAnchor: [0, -details.size[1] / 2]
+                        iconUrl: iconData.url,
+                        iconSize: iconData.size,
+                        iconAnchor: iconData.anchor,
+                        popupAnchor: [0, -iconData.size[1] / 2]
                     });
                 }
-                return L.icon.Default.prototype;
+                
+                console.log(`No custom icon found for fid ${fid} (converted to ${fidNumber}), using default`);
+                return new L.Icon.Default();
             };
 
             landmarkLayer = L.geoJSON(json_landmarks_1, {
@@ -995,9 +1077,12 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // --- INITIALIZATION --- //
-    // Initialize map first, then check auth and fetch markers
+    // Initialize map first, then scan icons, check auth and fetch markers
     initMap();
-    setTimeout(() => {
+    setTimeout(async () => {
+        await scanAvailableMarkerIcons(); // Scan for available icons first
+        loadLandmarkLayer(); // Load landmarks AFTER icons are scanned
+        handleLandmarkLayerVisibility(); // Update visibility after loading
         checkAuthStatus();
         fetchMarkers();
     }, 100); // Small delay to ensure map is fully initialized
