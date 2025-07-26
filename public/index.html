@@ -132,13 +132,29 @@
         </div>
     </main>
 
+    <!-- Custom Confirmation Dialog -->
+    <div id="confirm-dialog-overlay" class="confirm-dialog-overlay">
+        <div class="confirm-dialog">
+            <div class="confirm-dialog-icon">
+                <span class="icon">🗑️</span>
+            </div>
+            <div class="confirm-dialog-title">Delete Plot</div>
+            <div class="confirm-dialog-message">
+                Are you sure you want to delete this plot? This action cannot be undone.
+            </div>
+            <div class="confirm-dialog-buttons">
+                <button class="confirm-dialog-button cancel" id="confirm-cancel">Cancel</button>
+                <button class="confirm-dialog-button delete" id="confirm-delete">Delete</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Leaflet JavaScript -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" 
             integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 
-    <!-- Goldenbrick Layer Data -->
-    <script src="/static/js/landmarks_1.js"></script>
-    <script src="/static/js/landmarks_1_style.js"></script>
+    <!-- Unified Landmark Data -->
+    <script src="/static/js/landmarks_data.js"></script>
 
     <!-- Main Application Script -->
     <script src="/static/js/main.js"></script>

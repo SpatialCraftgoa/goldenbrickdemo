@@ -59,65 +59,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- INITIALIZATION --- //
     
-    // Dynamic marker icon scanning
-    async function scanAvailableMarkerIcons() {
-        try {
-            console.log('Scanning for available marker icons...');
-            
-            // Try to get the list from the server API first
-            const response = await fetch('/api/markers/icons', {
-                credentials: 'same-origin'
-            });
-            
-            if (response.ok) {
-                const data = await response.json();
-                if (data.success && data.icons) {
-                    availableMarkerIcons = data.icons;
-                    console.log(`Loaded ${data.count} marker icons from server:`, availableMarkerIcons);
-                    return availableMarkerIcons;
-                }
-            }
-            
-            // Fallback: Try to load known patterns and detect which ones exist
-            console.log('Server API failed, using fallback detection...');
-            const iconPatterns = [
-                'embedded.svg',
-                'embedded_1.svg', 
-                'embedded_2.svg',
-                'embedded_3.svg',
-                'embedded_4.svg'
-            ];
-            
-            const baseUrl = '/static/images/markers/';
-            const foundIcons = {};
-            let categoryIndex = 1;
-            
-            for (const iconFile of iconPatterns) {
-                try {
-                    // Test if the icon exists by attempting to load it
-                    const iconExists = await testIconExists(baseUrl + iconFile);
-                    if (iconExists) {
-                        foundIcons[categoryIndex] = {
-                            url: baseUrl + iconFile,
-                            filename: iconFile,
-                            size: iconFile.includes('_1.svg') ? [57, 57] : [57, 86], // Special case for _1
-                            anchor: iconFile.includes('_1.svg') ? [28.5, 28.5] : [28.5, 43]
-                        };
-                        categoryIndex++;
-                    }
-                } catch (error) {
-                    // Icon doesn't exist, skip it
-                    console.log(`Icon ${iconFile} not found, skipping...`);
-                }
-            }
-            
-            availableMarkerIcons = foundIcons;
-            console.log(`Found ${Object.keys(foundIcons).length} marker icons:`, foundIcons);
-            
-            return foundIcons;
-        } catch (error) {
-            console.error('Error scanning marker icons:', error);
-            // Fallback to hardcoded icons if scanning fails
+    // Initialize available marker icons from landmark data
+    function initializeLandmarkIcons() {
+        if (typeof dubaiLandmarks !== 'undefined') {
+            console.log('Initializing landmark icons from unified data...');
+            availableMarkerIcons = getAllLandmarkIcons();
+            console.log('Landmark icons initialized:', availableMarkerIcons);
+        } else {
+            console.warn('Dubai landmarks data not available, using fallback icons');
+            // Fallback to hardcoded icons if data not available
             availableMarkerIcons = {
                 1: { url: '/static/images/markers/embedded.svg', size: [57, 86], anchor: [28.5, 43] },
                 2: { url: '/static/images/markers/embedded_1.svg', size: [57, 57], anchor: [28.5, 28.5] },
@@ -125,7 +75,38 @@ document.addEventListener('DOMContentLoaded', () => {
                 4: { url: '/static/images/markers/embedded_3.svg', size: [57, 86], anchor: [28.5, 43] },
                 5: { url: '/static/images/markers/embedded_4.svg', size: [57, 86], anchor: [28.5, 43] }
             };
-            return availableMarkerIcons;
+        }
+        return availableMarkerIcons;
+    }
+    
+    // Dynamic marker icon scanning (keep for user-added markers)
+    async function scanAvailableMarkerIcons() {
+        try {
+            console.log('Scanning for additional marker icons...');
+            
+            // Start with landmark icons
+            const landmarkIcons = initializeLandmarkIcons();
+            
+            // Try to get additional icons from the server API
+            const response = await fetch('/api/markers/icons', {
+                credentials: 'same-origin'
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                if (data.success && data.icons) {
+                    // Merge landmark icons with server icons
+                    availableMarkerIcons = { ...landmarkIcons, ...data.icons };
+                    console.log(`Loaded ${data.count} additional icons from server, total: ${Object.keys(availableMarkerIcons).length}`);
+                    return availableMarkerIcons;
+                }
+            }
+            
+            console.log(`Using ${Object.keys(landmarkIcons).length} landmark icons only`);
+            return landmarkIcons;
+        } catch (error) {
+            console.error('Error scanning additional marker icons:', error);
+            return initializeLandmarkIcons(); // Fall back to landmark icons only
         }
     }
     
@@ -504,12 +485,8 @@ document.addEventListener('DOMContentLoaded', () => {
             // Store the markers data
             markers = Array.isArray(markerData) ? markerData : [];
             
-            // Separate landmarks from regular markers
-            const regularMarkers = markers.filter(marker => !marker.isLandmark);
-            const landmarkMarkers = markers.filter(marker => marker.isLandmark);
-            
-            // Add regular markers to the user layer
-            regularMarkers.forEach(marker => {
+            // Add markers to the map (all markers are now user-added, landmarks come from separate data file)
+            markers.forEach(marker => {
                 try {
                     if (marker && marker.position && typeof marker.position.lat === 'number' && typeof marker.position.lng === 'number') {
                         const icon = marker.category ? createCustomIcon(marker.iconImage, marker.category) : 
@@ -535,10 +512,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             });
             
-            // Update landmark layer with database landmarks
-            updateLandmarkLayer(landmarkMarkers);
-            
-            console.log(`Rendered ${regularMarkers.length} plots and ${landmarkMarkers.length} landmarks on the map`);
+            console.log(`Rendered ${markers.length} user plots on the map`);
         } catch (error) {
             console.error('Error in renderMarkers:', error);
             if (map && errorControl) {
@@ -591,8 +565,61 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // --- CUSTOM CONFIRMATION DIALOG --- //
+    function showConfirmDialog(message, title = 'Confirm Action') {
+        return new Promise((resolve) => {
+            const overlay = document.getElementById('confirm-dialog-overlay');
+            const titleElement = overlay.querySelector('.confirm-dialog-title');
+            const messageElement = overlay.querySelector('.confirm-dialog-message');
+            const cancelBtn = document.getElementById('confirm-cancel');
+            const deleteBtn = document.getElementById('confirm-delete');
+            
+            // Set content
+            titleElement.textContent = title;
+            messageElement.textContent = message;
+            
+            // Show dialog
+            overlay.classList.add('show');
+            
+            // Handle button clicks
+            const handleCancel = () => {
+                overlay.classList.remove('show');
+                cleanup();
+                resolve(false);
+            };
+            
+            const handleDelete = () => {
+                overlay.classList.remove('show');
+                cleanup();
+                resolve(true);
+            };
+            
+            const cleanup = () => {
+                cancelBtn.removeEventListener('click', handleCancel);
+                deleteBtn.removeEventListener('click', handleDelete);
+                overlay.removeEventListener('click', handleOverlayClick);
+            };
+            
+            const handleOverlayClick = (e) => {
+                if (e.target === overlay) {
+                    handleCancel();
+                }
+            };
+            
+            // Add event listeners
+            cancelBtn.addEventListener('click', handleCancel);
+            deleteBtn.addEventListener('click', handleDelete);
+            overlay.addEventListener('click', handleOverlayClick);
+        });
+    }
+
     async function deleteMarker(markerId) {
-        if (!confirm('Are you sure you want to delete this plot?')) {
+        const confirmed = await showConfirmDialog(
+            'Are you sure you want to delete this plot? This action cannot be undone.',
+            'Delete Plot'
+        );
+        
+        if (!confirmed) {
             return;
         }
         
@@ -902,22 +929,15 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function loadLandmarkLayer() {
-        if (typeof json_landmarks_1 !== 'undefined') {
-            console.log('Loading Goldenbrick landmark layer...');
-            console.log('Available marker icons:', availableMarkerIcons);
+        if (typeof dubaiLandmarks !== 'undefined') {
+            console.log('Loading unified Dubai landmark layer...');
+            console.log('Landmark data:', dubaiLandmarks);
 
             const getLandmarkIcon = (feature) => {
-                const fid = feature.properties.fid;
-                console.log(`Creating icon for landmark fid: ${fid} (type: ${typeof fid})`);
+                const iconData = feature.properties.icon;
+                console.log(`Creating icon for landmark: ${feature.properties.name}`, iconData);
                 
-                if (!fid) return new L.Icon.Default(); // Default marker
-
-                // Convert fid to number for icon lookup (fid might be string from GeoJSON)
-                const fidNumber = parseInt(fid);
-                const iconData = availableMarkerIcons[fidNumber];
-                
-                if (iconData) {
-                    console.log(`Using custom icon for fid ${fid}:`, iconData);
+                if (iconData && iconData.url) {
                     return L.icon({
                         iconUrl: iconData.url,
                         iconSize: iconData.size,
@@ -926,27 +946,33 @@ document.addEventListener('DOMContentLoaded', () => {
                     });
                 }
                 
-                console.log(`No custom icon found for fid ${fid} (converted to ${fidNumber}), using default`);
+                console.log(`No icon data found for ${feature.properties.name}, using default`);
                 return new L.Icon.Default();
             };
 
-            landmarkLayer = L.geoJSON(json_landmarks_1, {
+            landmarkLayer = L.geoJSON(dubaiLandmarks, {
                 pointToLayer: (feature, latlng) => {
                     return L.marker(latlng, { icon: getLandmarkIcon(feature) });
                 },
                 onEachFeature: (feature, layer) => {
-                    // You can add popups here from feature properties if needed
-                    if (feature.properties && feature.properties.name) {
-                         layer.bindPopup(feature.properties.name);
+                    // Create rich popup content with name and description
+                    if (feature.properties) {
+                        const props = feature.properties;
+                        const popupContent = `
+                            <div style="max-width: 200px;">
+                                <h4 style="margin: 0 0 8px 0; color: #2c3e50;">${props.name}</h4>
+                                ${props.description ? `<p style="margin: 0; font-size: 0.9rem; color: #555;">${props.description}</p>` : ''}
+                                ${props.category ? `<span style="display: inline-block; margin-top: 8px; padding: 2px 8px; background: #3498db; color: white; border-radius: 10px; font-size: 0.8rem;">${props.category}</span>` : ''}
+                            </div>
+                        `;
+                        layer.bindPopup(popupContent);
                     }
                 }
             });
 
-            // The layer is now managed by handleLandmarkLayerVisibility
-            // landmarkLayer.addTo(map);
-            console.log('Landmark layer created and ready.');
+            console.log('Unified landmark layer created and ready.');
         } else {
-            console.warn('Landmark data (json_landmarks_1) not found.');
+            console.warn('Unified landmark data (dubaiLandmarks) not found.');
         }
     }
 
