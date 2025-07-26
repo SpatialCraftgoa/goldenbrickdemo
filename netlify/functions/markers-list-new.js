@@ -29,7 +29,7 @@ const verifyToken = (cookies) => {
 };
 
 exports.handler = async (event, context) => {
-  console.log('markers-list function called', { method: event.httpMethod, body: event.body });
+  console.log('markers-list function called', { method: event.httpMethod });
 
   // Handle CORS
   const headers = {
@@ -52,9 +52,6 @@ exports.handler = async (event, context) => {
   }
 
   const method = event.httpMethod;
-  console.log('Processing method:', method);
-  console.log('Method type:', typeof method);
-  console.log('Method === "DELETE":', method === 'DELETE');
 
   try {
     // GET /api/markers - Get all markers
@@ -125,40 +122,6 @@ exports.handler = async (event, context) => {
         };
       }
 
-      // Validate image size - limit to 1MB to prevent timeouts
-      if (iconImage && iconImage.length > 1048576) {
-        return {
-          statusCode: 400,
-          headers,
-          body: JSON.stringify({ 
-            message: 'Icon image too large. Please use an image smaller than 1MB.' 
-          })
-        };
-      }
-
-      // Validate contentItems size
-      if (contentItems && JSON.stringify(contentItems).length > 2097152) {
-        return {
-          statusCode: 400,
-          headers,
-          body: JSON.stringify({ 
-            message: 'Content items too large. Please reduce the size of uploaded images.' 
-          })
-        };
-      }
-
-      const newMarker = {
-        title,
-        description,
-        latitude: position.lat,
-        longitude: position.lng,
-        iconImage,
-        googleMapsUrl,
-        contentItems,
-        createdBy: user.username,
-        createdAt: new Date().toISOString()
-      };
-
       // Insert into database
       const insertResult = await pool.query(`
         INSERT INTO markers (title, description, latitude, longitude, icon_image, google_maps_url, content_items, created_by, created_at)
@@ -195,63 +158,6 @@ exports.handler = async (event, context) => {
         body: JSON.stringify({
           message: 'Marker created successfully',
           marker: responseMarker
-        })
-      };
-    }
-
-    // DELETE /api/markers/{id} - Delete marker (admin only)
-    if (method === 'DELETE') {
-      console.log('Processing DELETE request for marker');
-      
-      const user = verifyToken(event.headers.cookie);
-      console.log('User from token:', user);
-      
-      if (!user || user.role !== 'admin') {
-        console.log('Access denied - not admin or no valid token');
-        return {
-          statusCode: 403,
-          headers,
-          body: JSON.stringify({ message: 'Admin access required' })
-        };
-      }
-
-      // Extract marker ID from path or query parameters
-      let markerId;
-      if (event.pathParameters && event.pathParameters.id) {
-        markerId = event.pathParameters.id;
-      } else if (event.queryStringParameters && event.queryStringParameters.id) {
-        markerId = event.queryStringParameters.id;
-      } else {
-        return {
-          statusCode: 400,
-          headers,
-          body: JSON.stringify({ message: 'Marker ID is required' })
-        };
-      }
-
-      console.log('Deleting marker ID:', markerId);
-
-      // Check if marker exists
-      const existingMarker = await pool.query('SELECT id FROM markers WHERE id = $1', [markerId]);
-      if (existingMarker.rows.length === 0) {
-        return {
-          statusCode: 404,
-          headers,
-          body: JSON.stringify({ message: 'Marker not found' })
-        };
-      }
-
-      // Delete the marker
-      await pool.query('DELETE FROM markers WHERE id = $1', [markerId]);
-
-      console.log('Marker deleted successfully:', markerId);
-      
-      return {
-        statusCode: 200,
-        headers,
-        body: JSON.stringify({
-          message: 'Marker deleted successfully',
-          deletedId: parseInt(markerId)
         })
       };
     }

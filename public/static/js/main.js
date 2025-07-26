@@ -703,7 +703,7 @@ document.addEventListener('DOMContentLoaded', () => {
             deletingDiv.innerHTML = '<div style="text-align: center;">🗑️ Deleting plot...</div>';
             document.body.appendChild(deletingDiv);
             
-            const response = await fetch(`${API_BASE}/markers/${markerId}`, {
+            const response = await fetch(`${API_BASE}/markers?id=${markerId}`, {
                 method: 'DELETE',
                 credentials: 'same-origin'
             });

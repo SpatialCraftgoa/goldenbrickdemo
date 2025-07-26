@@ -12,7 +12,7 @@ const pool = new Pool({
 });
 
 exports.handler = async (event, context) => {
-  console.log('auth-me function called', { method: event.httpMethod, headers: event.headers });
+  console.log('auth-me function called', { method: event.httpMethod });
 
   // Handle CORS
   const headers = {
@@ -34,8 +34,11 @@ exports.handler = async (event, context) => {
     };
   }
 
+  const method = event.httpMethod;
+
   try {
-    if (event.httpMethod === 'GET') {
+    // Get current user endpoint
+    if (method === 'GET') {
       const cookies = event.headers.cookie || '';
       console.log('Cookies received:', cookies);
       
@@ -96,7 +99,7 @@ exports.handler = async (event, context) => {
         })
       };
     }
-    
+
     return {
       statusCode: 405,
       headers,
@@ -104,7 +107,7 @@ exports.handler = async (event, context) => {
     };
 
   } catch (error) {
-    console.error('Auth-me function error:', error);
+    console.error('Auth login function error:', error);
     return {
       statusCode: 500,
       headers,

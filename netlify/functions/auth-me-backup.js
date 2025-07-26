@@ -1,3 +1,4 @@
+const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { Pool } = require('pg');
 
@@ -12,7 +13,7 @@ const pool = new Pool({
 });
 
 exports.handler = async (event, context) => {
-  console.log('auth-me function called', { method: event.httpMethod, headers: event.headers });
+  console.log('auth-login function called', { method: event.httpMethod });
 
   // Handle CORS
   const headers = {
@@ -34,60 +35,67 @@ exports.handler = async (event, context) => {
     };
   }
 
+  const method = event.httpMethod;
+
   try {
-    if (event.httpMethod === 'GET') {
-      const cookies = event.headers.cookie || '';
-      console.log('Cookies received:', cookies);
-      
-      const tokenMatch = cookies.match(/token=([^;]+)/);
-      
-      if (!tokenMatch) {
-        console.log('No token found in cookies');
+    // Login endpoint
+    if (method === 'POST') {
+      const { username, password } = JSON.parse(event.body);
+
+      if (!username || !password) {
+        return {
+          statusCode: 400,
+          headers,
+          body: JSON.stringify({ message: 'Username and password are required' })
+        };
+      }
+
+            // Find user in database
+      const userResult = await pool.query(
+        'SELECT * FROM users WHERE username = $1',
+        [username]
+      );
+
+      if (userResult.rows.length === 0) {
         return {
           statusCode: 401,
           headers,
-          body: JSON.stringify({ message: 'No token provided' })
+          body: JSON.stringify({ message: 'Invalid credentials' })
         };
       }
 
-      console.log('Token found, verifying...');
-      const decoded = jwt.verify(
-        tokenMatch[1], 
-        process.env.JWT_SECRET || 'fallback-secret-change-in-production'
-      );
-      
-      console.log('Token decoded:', decoded);
-      
-      // Query database for user
-      console.log('Querying database for user...');
-      const userResult = await pool.query(
-        'SELECT id, username, role FROM users WHERE id = $1',
-        [decoded.id]
-      );
-      
-      console.log('Database query result:', userResult.rows);
-      
-      if (userResult.rows.length === 0) {
-        return {
-          statusCode: 404,
-          headers,
-          body: JSON.stringify({ message: 'User not found' })
-        };
-      }
-      
       const user = userResult.rows[0];
       if (!user) {
         return {
-          statusCode: 404,
+          statusCode: 401,
           headers,
-          body: JSON.stringify({ message: 'User not found' })
+          body: JSON.stringify({ message: 'Invalid credentials' })
         };
       }
 
+      const isValidPassword = await bcrypt.compare(password, user.password);
+      if (!isValidPassword) {
+        return {
+          statusCode: 401,
+          headers,
+          body: JSON.stringify({ message: 'Invalid credentials' })
+        };
+      }
+
+      const token = jwt.sign(
+        { id: user.id, username: user.username, role: user.role },
+        process.env.JWT_SECRET || 'fallback-secret-change-in-production',
+        { expiresIn: '24h' }
+      );
+
       return {
         statusCode: 200,
-        headers,
+        headers: {
+          ...headers,
+          'Set-Cookie': `token=${token}; HttpOnly; Secure; SameSite=Strict; Max-Age=86400; Path=/`
+        },
         body: JSON.stringify({
+          message: 'Login successful',
           user: {
             id: user.id,
             username: user.username,
@@ -96,7 +104,7 @@ exports.handler = async (event, context) => {
         })
       };
     }
-    
+
     return {
       statusCode: 405,
       headers,
@@ -104,7 +112,7 @@ exports.handler = async (event, context) => {
     };
 
   } catch (error) {
-    console.error('Auth-me function error:', error);
+    console.error('Auth login function error:', error);
     return {
       statusCode: 500,
       headers,

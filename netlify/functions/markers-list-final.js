@@ -29,7 +29,7 @@ const verifyToken = (cookies) => {
 };
 
 exports.handler = async (event, context) => {
-  console.log('markers-list function called', { method: event.httpMethod, body: event.body });
+  console.log('FINAL markers-list function called', { method: event.httpMethod });
 
   // Handle CORS
   const headers = {
@@ -52,13 +52,12 @@ exports.handler = async (event, context) => {
   }
 
   const method = event.httpMethod;
-  console.log('Processing method:', method);
-  console.log('Method type:', typeof method);
-  console.log('Method === "DELETE":', method === 'DELETE');
+  console.log('FINAL Processing method:', method);
 
   try {
     // GET /api/markers - Get all markers
     if (method === 'GET') {
+      console.log('FINAL Processing GET request');
       const markersResult = await pool.query(`
         SELECT 
           id, 
@@ -67,8 +66,6 @@ exports.handler = async (event, context) => {
           latitude, 
           longitude, 
           icon_image, 
-          google_maps_url, 
-          content_items, 
           created_by, 
           created_at 
         FROM markers 
@@ -81,8 +78,6 @@ exports.handler = async (event, context) => {
         description: row.description,
         position: { lat: parseFloat(row.latitude), lng: parseFloat(row.longitude) },
         iconImage: row.icon_image,
-        googleMapsUrl: row.google_maps_url || '',
-        contentItems: row.content_items || [],
         createdBy: row.created_by,
         createdAt: row.created_at
       }));
@@ -96,9 +91,13 @@ exports.handler = async (event, context) => {
 
     // POST /api/markers - Create new marker (admin only)
     if (method === 'POST') {
+      console.log('FINAL Processing POST request for new marker');
+      
       const user = verifyToken(event.headers.cookie);
+      console.log('User from token:', user);
       
       if (!user || user.role !== 'admin') {
+        console.log('Access denied - not admin or no valid token');
         return {
           statusCode: 403,
           headers,
@@ -106,6 +105,9 @@ exports.handler = async (event, context) => {
         };
       }
 
+      const requestBody = JSON.parse(event.body);
+      console.log('Request body:', requestBody);
+      
       const {
         position,
         title,
@@ -113,7 +115,7 @@ exports.handler = async (event, context) => {
         iconImage,
         contentItems = [],
         googleMapsUrl = ''
-      } = JSON.parse(event.body);
+      } = requestBody;
 
       if (!position || !title || !description || !iconImage) {
         return {
@@ -124,40 +126,6 @@ exports.handler = async (event, context) => {
           })
         };
       }
-
-      // Validate image size - limit to 1MB to prevent timeouts
-      if (iconImage && iconImage.length > 1048576) {
-        return {
-          statusCode: 400,
-          headers,
-          body: JSON.stringify({ 
-            message: 'Icon image too large. Please use an image smaller than 1MB.' 
-          })
-        };
-      }
-
-      // Validate contentItems size
-      if (contentItems && JSON.stringify(contentItems).length > 2097152) {
-        return {
-          statusCode: 400,
-          headers,
-          body: JSON.stringify({ 
-            message: 'Content items too large. Please reduce the size of uploaded images.' 
-          })
-        };
-      }
-
-      const newMarker = {
-        title,
-        description,
-        latitude: position.lat,
-        longitude: position.lng,
-        iconImage,
-        googleMapsUrl,
-        contentItems,
-        createdBy: user.username,
-        createdAt: new Date().toISOString()
-      };
 
       // Insert into database
       const insertResult = await pool.query(`
@@ -189,6 +157,8 @@ exports.handler = async (event, context) => {
         createdAt: createdMarker.created_at
       };
 
+      console.log('Marker created successfully:', responseMarker.id);
+      
       return {
         statusCode: 201,
         headers,
@@ -199,9 +169,9 @@ exports.handler = async (event, context) => {
       };
     }
 
-    // DELETE /api/markers/{id} - Delete marker (admin only)
+    // DELETE /api/markers?id={id} - Delete marker (admin only)
     if (method === 'DELETE') {
-      console.log('Processing DELETE request for marker');
+      console.log('FINAL Processing DELETE request for marker');
       
       const user = verifyToken(event.headers.cookie);
       console.log('User from token:', user);
@@ -215,21 +185,19 @@ exports.handler = async (event, context) => {
         };
       }
 
-      // Extract marker ID from path or query parameters
+      // Extract marker ID from query parameters
       let markerId;
-      if (event.pathParameters && event.pathParameters.id) {
-        markerId = event.pathParameters.id;
-      } else if (event.queryStringParameters && event.queryStringParameters.id) {
+      if (event.queryStringParameters && event.queryStringParameters.id) {
         markerId = event.queryStringParameters.id;
       } else {
         return {
           statusCode: 400,
           headers,
-          body: JSON.stringify({ message: 'Marker ID is required' })
+          body: JSON.stringify({ message: 'Marker ID is required as query parameter (?id=123)' })
         };
       }
 
-      console.log('Deleting marker ID:', markerId);
+      console.log('FINAL Deleting marker ID:', markerId);
 
       // Check if marker exists
       const existingMarker = await pool.query('SELECT id FROM markers WHERE id = $1', [markerId]);
@@ -244,7 +212,7 @@ exports.handler = async (event, context) => {
       // Delete the marker
       await pool.query('DELETE FROM markers WHERE id = $1', [markerId]);
 
-      console.log('Marker deleted successfully:', markerId);
+      console.log('FINAL Marker deleted successfully:', markerId);
       
       return {
         statusCode: 200,
@@ -263,7 +231,7 @@ exports.handler = async (event, context) => {
     };
 
   } catch (error) {
-    console.error('Markers function error:', error);
+    console.error('FINAL Markers function error:', error);
     return {
       statusCode: 500,
       headers,
