@@ -9,6 +9,7 @@ require('dotenv').config();
 // Import routes
 const authRoutes = require('./routes/auth');
 const markerRoutes = require('./routes/markers');
+const netlifyCompatRoutes = require('./routes/netlify-compat');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -59,6 +60,9 @@ app.use(express.static(path.join(__dirname, 'public')));
 // API Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/markers', markerRoutes);
+
+// Netlify Functions compatibility layer
+app.use('/.netlify/functions', netlifyCompatRoutes);
 
 // Serve the main HTML page
 app.get('/', (req, res) => {
