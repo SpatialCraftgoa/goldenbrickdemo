@@ -78,6 +78,16 @@ app.get('/health', (req, res) => {
   });
 });
 
+// API health check endpoint for consistency
+app.get('/api/health', (req, res) => {
+  res.json({ 
+    status: 'OK', 
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    environment: process.env.NODE_ENV || 'development'
+  });
+});
+
 // Catch-all handler for 404s
 app.use('*', (req, res) => {
   res.status(404).json({ 
